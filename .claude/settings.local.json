@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run *)",
+      "Bash(npx tsc *)",
+      "WebSearch",
+      "mcp__05f1e6f5-4a78-401a-bef6-5fef7a5b3dcb__notion-search",
+      "mcp__05f1e6f5-4a78-401a-bef6-5fef7a5b3dcb__notion-fetch",
+      "Bash(git init *)",
+      "Bash(git add *)",
+      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Baseline before production refactor *)"
+    ]
+  }
+}

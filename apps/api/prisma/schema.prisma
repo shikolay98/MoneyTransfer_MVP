@@ -1,0 +1,213 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  USER
+  ADMIN
+}
+
+enum ExchangeRequestStatus {
+  NEW
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+enum ContentPage {
+  HOME
+  PRIVACY
+  TERMS
+}
+
+enum ChatParticipantRole {
+  USER
+  ADMIN
+  SYSTEM
+}
+
+enum ChatMessageStatus {
+  SENT
+  DELIVERED
+  READ
+}
+
+model User {
+  id               String            @id @default(cuid())
+  role             UserRole          @default(USER)
+  email            String?           @unique
+  passwordHash     String?
+  telegramId       String?           @unique
+  telegramUsername String?
+  firstName        String?
+  lastName         String?
+  photoUrl         String?
+  isActive         Boolean           @default(true)
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+  sessions         Session[]
+  exchangeRequests ExchangeRequest[]
+  chatThreads      ChatThread[]
+  sentMessages     ChatMessage[]     @relation("SenderMessages")
+  auditLogs        AuditLog[]        @relation("ActorAuditLogs")
+  updatedRates     ExchangeRate[]    @relation("RateUpdatedBy")
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  userId    String
+  tokenHash String   @unique
+  expiresAt DateTime
+  userAgent String?
+  ipAddress String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model ContentSection {
+  id          String      @id @default(cuid())
+  page        ContentPage
+  key         String
+  title       String?
+  subtitle    String?
+  body        String?
+  metadata    Json?
+  sortOrder   Int         @default(0)
+  isPublished Boolean     @default(true)
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+
+  @@unique([page, key])
+  @@index([page, sortOrder])
+}
+
+model FaqItem {
+  id          String   @id @default(cuid())
+  question    String   @unique
+  answer      String
+  sortOrder   Int      @default(0)
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([sortOrder])
+}
+
+model Currency {
+  id              String            @id @default(cuid())
+  code            String            @unique
+  name            String
+  symbol          String?
+  isActive        Boolean           @default(true)
+  sortOrder       Int               @default(0)
+  sendRates       ExchangeRate[]    @relation("SendCurrencyRates")
+  receiveRates    ExchangeRate[]    @relation("ReceiveCurrencyRates")
+  sendRequests    ExchangeRequest[] @relation("SendCurrencyRequests")
+  receiveRequests ExchangeRequest[] @relation("ReceiveCurrencyRequests")
+}
+
+model Bank {
+  id               String            @id @default(cuid())
+  code             String            @unique
+  name             String
+  countryCode      String?
+  isActive         Boolean           @default(true)
+  sortOrder        Int               @default(0)
+  senderRequests   ExchangeRequest[] @relation("SenderBankRequests")
+  receiverRequests ExchangeRequest[] @relation("ReceiverBankRequests")
+}
+
+model ExchangeRate {
+  id             String   @id @default(cuid())
+  fromCurrencyId String
+  toCurrencyId   String
+  rate           Decimal  @db.Decimal(18, 6)
+  feePercent     Decimal? @db.Decimal(5, 2)
+  note           String?
+  isActive       Boolean  @default(true)
+  updatedById    String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  fromCurrency   Currency @relation("SendCurrencyRates", fields: [fromCurrencyId], references: [id], onDelete: Cascade)
+  toCurrency     Currency @relation("ReceiveCurrencyRates", fields: [toCurrencyId], references: [id], onDelete: Cascade)
+  updatedBy      User?    @relation("RateUpdatedBy", fields: [updatedById], references: [id], onDelete: SetNull)
+
+  @@unique([fromCurrencyId, toCurrencyId])
+}
+
+model ExchangeRequest {
+  id                String                @id @default(cuid())
+  userId            String?
+  sendCurrencyId    String
+  receiveCurrencyId String
+  senderBankId      String
+  receiverBankId    String
+  amount            Decimal               @db.Decimal(18, 2)
+  contact           String
+  notes             String?
+  status            ExchangeRequestStatus @default(NEW)
+  createdAt         DateTime              @default(now())
+  updatedAt         DateTime              @updatedAt
+  user              User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)
+  sendCurrency      Currency              @relation("SendCurrencyRequests", fields: [sendCurrencyId], references: [id], onDelete: Restrict)
+  receiveCurrency   Currency              @relation("ReceiveCurrencyRequests", fields: [receiveCurrencyId], references: [id], onDelete: Restrict)
+  senderBank        Bank                  @relation("SenderBankRequests", fields: [senderBankId], references: [id], onDelete: Restrict)
+  receiverBank      Bank                  @relation("ReceiverBankRequests", fields: [receiverBankId], references: [id], onDelete: Restrict)
+  chatThread        ChatThread?
+
+  @@index([userId])
+  @@index([status])
+}
+
+model ChatThread {
+  id                String           @id @default(cuid())
+  userId            String
+  exchangeRequestId String?          @unique
+  subject           String?
+  lastMessageAt     DateTime?
+  createdAt         DateTime         @default(now())
+  updatedAt         DateTime         @updatedAt
+  user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  exchangeRequest   ExchangeRequest? @relation(fields: [exchangeRequestId], references: [id], onDelete: SetNull)
+  messages          ChatMessage[]
+
+  @@index([userId])
+}
+
+model ChatMessage {
+  id         String              @id @default(cuid())
+  threadId   String
+  senderId   String?
+  senderRole ChatParticipantRole
+  body       String
+  status     ChatMessageStatus   @default(SENT)
+  createdAt  DateTime            @default(now())
+  updatedAt  DateTime            @updatedAt
+  thread     ChatThread          @relation(fields: [threadId], references: [id], onDelete: Cascade)
+  sender     User?               @relation("SenderMessages", fields: [senderId], references: [id], onDelete: SetNull)
+
+  @@index([threadId, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  actorId    String?
+  action     String
+  entityType String
+  entityId   String?
+  payload    Json?
+  createdAt  DateTime @default(now())
+  actor      User?    @relation("ActorAuditLogs", fields: [actorId], references: [id], onDelete: SetNull)
+
+  @@index([entityType, entityId])
+  @@index([createdAt])
+}
