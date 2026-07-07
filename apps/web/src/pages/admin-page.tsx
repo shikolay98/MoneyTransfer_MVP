@@ -566,7 +566,7 @@ const ChatsPanel = () => {
       </div>
 
       {selectedId ? (
-        <div className="flex h-[520px] flex-col rounded-[20px] border border-line bg-[#f5f8fd]">
+        <div className="flex h-[calc(100dvh-16rem)] min-h-[460px] flex-col overflow-hidden rounded-[20px] border border-line bg-[#eef2f9]">
           <div className="border-b border-line/70 px-4 py-3">
             <div className="text-sm font-semibold text-ink">
               {threads.find((t) => t.id === selectedId)?.subject ?? 'Чат'}
@@ -617,7 +617,7 @@ const ChatsPanel = () => {
           <ChatComposer onError={(msg) => addToast(msg, 'error')} onSend={send} />
         </div>
       ) : (
-        <div className="flex items-center justify-center rounded-[20px] border border-line bg-[#f5f8fd] text-sm text-muted">
+        <div className="flex h-[calc(100dvh-16rem)] min-h-[460px] items-center justify-center rounded-[20px] border border-line bg-[#f5f8fd] text-sm text-muted">
           Выберите чат слева
         </div>
       )}

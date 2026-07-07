@@ -222,8 +222,26 @@ export const PublicLayout = () => {
                 ))}
               </nav>
 
-              {/* Desktop auth */}
-              <div className="hidden items-center gap-2 md:flex">
+              {/* Right cluster: live rates + auth + mobile menu */}
+              <div className="flex items-center gap-3">
+                {rates.length > 0 && (
+                  <div className="hidden items-center gap-2 lg:flex">
+                    {rates.map((rate) => (
+                      <span
+                        key={rate.id}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-line bg-white/70 px-3 py-1 text-xs"
+                        title={`1 ${rate.fromCurrency} = ${rate.rate} ${rate.toCurrency}`}
+                      >
+                        <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-success animate-pulse-slow" />
+                        <span className="font-medium text-muted">{rate.pair}</span>
+                        <span className="font-bold text-ink">{rate.rate}</span>
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Desktop auth */}
+                <div className="hidden items-center gap-2 md:flex">
                 {isAuthed ? (
                   <>
                     <span className="text-sm text-muted">
@@ -288,6 +306,7 @@ export const PublicLayout = () => {
               >
                 {isMobileMenuOpen ? <CloseIcon /> : <MenuIcon />}
               </button>
+              </div>
             </div>
 
             {/* Mobile menu */}
@@ -349,36 +368,8 @@ export const PublicLayout = () => {
         </div>
       </div>
 
-      {/* ── Rates ticker (compact, below header) ─────────────────── */}
-      {rates.length > 0 && (
-        <div
-          className={[
-            'fixed inset-x-0 top-[4.5rem] z-40 hidden transition-all duration-300 ease-spring md:block',
-            isHeaderHidden ? '-translate-y-[220%] opacity-0' : 'translate-y-0 opacity-100',
-          ]
-            .filter(Boolean)
-            .join(' ')}
-        >
-          <div className="page-shell">
-            <div className="flex items-center gap-3 pt-1">
-              {rates.map((rate) => (
-                <div
-                  key={rate.id}
-                  className="inline-flex items-center gap-2.5 rounded-full border border-line/80 bg-white/90 px-3.5 py-1.5 text-xs backdrop-blur-sm shadow-sm"
-                >
-                  <span className="flex h-1.5 w-1.5 rounded-full bg-success animate-pulse-slow" />
-                  <span className="font-semibold text-muted">{rate.pair}</span>
-                  <span className="font-bold text-ink">{rate.rate}</span>
-                </div>
-              ))}
-              <span className="text-[11px] text-muted">Курс подтверждается менеджером</span>
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* ── Main content ─────────────────────────────────────────── */}
-      <main className="pt-[5.25rem] md:pt-[6.25rem]" id="main-content">
+      <main className="pt-[4.75rem] md:pt-20" id="main-content">
         <Outlet />
       </main>
 

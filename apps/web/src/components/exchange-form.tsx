@@ -215,7 +215,7 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
           </div>
         </div>
 
-        <div className="px-6 py-5 space-y-3.5">
+        <div className="mt-form-body px-6 py-5 space-y-3.5">
           {/* Currency row with swap */}
           <div className="relative grid grid-cols-2 gap-3">
             <Field
@@ -354,7 +354,7 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
           </button>
 
           {/* Trust footer */}
-          <div className="flex items-center justify-center gap-4 pt-1 text-[11px] text-muted">
+          <div className="mt-form-trust flex items-center justify-center gap-4 pt-1 text-[11px] text-muted">
             <span className="flex items-center gap-1">🔒 Безопасно</span>
             <span aria-hidden="true" className="h-3 w-px bg-line" />
             <span className="flex items-center gap-1">⚡ Быстро</span>

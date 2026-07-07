@@ -45,7 +45,8 @@
       "Bash(xargs sed -i '' 's/#f3f5f3/#f1f5fb/g')",
       "Bash(xargs sed -i '' 's/#f0f7f4/#eff4ff/g')",
       "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'UI redesign to navy/blue fintech style + dev demo login *)",
-      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Chat file attachments, hero simplification, animations, clickable cards *)"
+      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Chat file attachments, hero simplification, animations, clickable cards *)",
+      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Rates in header, hero fits 13\" laptops, messenger-style chat, error-handler fix *)"
     ]
   }
 }

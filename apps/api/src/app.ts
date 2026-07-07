@@ -3,7 +3,6 @@ import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
-import { Prisma } from '@prisma/client';
 import Fastify, { type FastifyError } from 'fastify';
 
 import { corsOrigins, env } from './config/env.js';
@@ -67,29 +66,27 @@ export const buildApp = async () => {
 
   await ensureUploadDir();
 
-  await app.register(prismaPlugin);
-  await app.register(jwtPlugin);
-  await app.register(socketIoPlugin);
-  await registerRoutes(app);
-
+  // Register the global error handler BEFORE routes so it is inherited by the
+  // encapsulated route plugins (a handler set after registration would not
+  // apply to already-registered children, leaking raw Prisma errors).
   app.setErrorHandler((error, request, reply) => {
-    if (error instanceof Prisma.PrismaClientKnownRequestError) {
-      if (error.code === 'P2025') {
-        return reply.status(404).send({ error: 'Запись не найдена' });
-      }
-      if (error.code === 'P2003') {
-        return reply.status(400).send({ error: 'Неверная ссылка на связанную запись' });
-      }
-      if (error.code === 'P2002') {
-        return reply.status(409).send({ error: 'Такая запись уже существует' });
-      }
+    // Detect Prisma errors by name/code rather than `instanceof`, which is
+    // unreliable across module instances (ESM/tsx) and can throw here.
+    const err = error as FastifyError & { name?: string; code?: string };
+    const prismaCode = err.name === 'PrismaClientKnownRequestError' ? err.code : undefined;
+
+    if (prismaCode === 'P2025') {
+      return reply.status(404).send({ error: 'Запись не найдена' });
+    }
+    if (prismaCode === 'P2003') {
+      return reply.status(400).send({ error: 'Неверная ссылка на связанную запись' });
+    }
+    if (prismaCode === 'P2002') {
+      return reply.status(409).send({ error: 'Такая запись уже существует' });
     }
 
-    const fastifyError = error as FastifyError;
     const statusCode =
-      typeof fastifyError.statusCode === 'number' && fastifyError.statusCode >= 400
-        ? fastifyError.statusCode
-        : 500;
+      typeof err.statusCode === 'number' && err.statusCode >= 400 ? err.statusCode : 500;
 
     if (statusCode >= 500) {
       request.log.error({ err: error }, 'Unhandled error');
@@ -97,8 +94,13 @@ export const buildApp = async () => {
       return reply.status(500).send({ error: 'Внутренняя ошибка сервера' });
     }
 
-    return reply.status(statusCode).send({ error: fastifyError.message });
+    return reply.status(statusCode).send({ error: err.message });
   });
+
+  await app.register(prismaPlugin);
+  await app.register(jwtPlugin);
+  await app.register(socketIoPlugin);
+  await registerRoutes(app);
 
   return app;
 };
