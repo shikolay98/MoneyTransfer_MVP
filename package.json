@@ -11,6 +11,8 @@
     "dev": "concurrently -n web,api -c cyan,green \"npm run dev --workspace @moneytransfer/web\" \"npm run dev --workspace @moneytransfer/api\"",
     "build": "npm run build --workspaces --if-present",
     "lint": "eslint .",
+    "typecheck": "npm run typecheck --workspaces --if-present",
+    "test": "npm run test --workspaces --if-present",
     "format": "prettier --check .",
     "format:write": "prettier --write .",
     "db:generate": "npm run prisma:generate --workspace @moneytransfer/api",

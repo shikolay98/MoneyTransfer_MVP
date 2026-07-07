@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod';
-import { useState } from 'react';
+import { useEffect, useState, type ChangeEvent } from 'react';
 import { useForm } from 'react-hook-form';
 import { useNavigate } from 'react-router-dom';
 import { z } from 'zod';
@@ -12,14 +12,24 @@ import { Card } from './ui/card';
 import { Field } from './ui/field';
 import { CoinsIcon, SwapIcon, ShieldIcon, CheckCircleIcon } from './ui/icons';
 
-const exchangeFormSchema = z.object({
-  sendCurrencyId: z.string().min(1, 'Выберите валюту'),
-  receiveCurrencyId: z.string().min(1, 'Выберите валюту'),
-  senderBankId: z.string().min(1, 'Выберите банк'),
-  receiverBankId: z.string().min(1, 'Выберите банк'),
-  amount: z.coerce.number().positive('Введите сумму больше нуля'),
-  contact: z.string().min(3, 'Укажите контакт для связи'),
-});
+const MAX_AMOUNT = 100_000_000;
+
+const exchangeFormSchema = z
+  .object({
+    sendCurrencyId: z.string().min(1, 'Выберите валюту'),
+    receiveCurrencyId: z.string().min(1, 'Выберите валюту'),
+    senderBankId: z.string().min(1, 'Выберите банк'),
+    receiverBankId: z.string().min(1, 'Выберите банк'),
+    amount: z.coerce
+      .number({ invalid_type_error: 'Введите сумму' })
+      .positive('Введите сумму больше нуля')
+      .max(MAX_AMOUNT, 'Сумма слишком большая — уточните лимиты у менеджера'),
+    contact: z.string().min(3, 'Укажите контакт для связи').max(200, 'Слишком длинный контакт'),
+  })
+  .refine((values) => values.sendCurrencyId !== values.receiveCurrencyId, {
+    message: 'Выберите разные валюты',
+    path: ['receiveCurrencyId'],
+  });
 
 type ExchangeFormValues = z.infer<typeof exchangeFormSchema>;
 
@@ -47,6 +57,9 @@ const bankGlyph = (code?: string) => {
   return glyphs[code ?? ''] ?? 'B';
 };
 
+const formatMoney = (value: number) =>
+  value.toLocaleString('ru', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+
 export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) => {
   const navigate = useNavigate();
   const { user } = useAuth();
@@ -63,6 +76,8 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
     handleSubmit,
     watch,
     setValue,
+    getValues,
+    reset,
     formState: { errors },
   } = useForm<ExchangeFormValues>({
     resolver: zodResolver(exchangeFormSchema),
@@ -76,6 +91,13 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
     },
   });
 
+  // If the user logs in after the form was rendered, prefill the empty contact.
+  useEffect(() => {
+    if (user?.telegramUsername && !getValues('contact')) {
+      setValue('contact', `@${user.telegramUsername}`);
+    }
+  }, [user, getValues, setValue]);
+
   const sendCurrencyId = watch('sendCurrencyId');
   const receiveCurrencyId = watch('receiveCurrencyId');
   const senderBankId = watch('senderBankId');
@@ -87,23 +109,36 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
   const senderBank = banks.find((b) => b.id === senderBankId) ?? banks[0];
   const receiverBank = banks.find((b) => b.id === receiverBankId) ?? banks[1] ?? banks[0];
 
-  // Rate preview calculation
+  // With a two-currency pair, picking the same currency on both sides
+  // silently swaps the other one instead of showing an error.
+  const handleCurrencyChange = (side: 'send' | 'receive', nextId: string) => {
+    const other = side === 'send' ? receiveCurrencyId : sendCurrencyId;
+    if (nextId === other) {
+      const replacement = availableCurrencies.find((c) => c.id !== nextId);
+      if (replacement) {
+        setValue(side === 'send' ? 'receiveCurrencyId' : 'sendCurrencyId', replacement.id);
+      }
+    }
+    setValue(side === 'send' ? 'sendCurrencyId' : 'receiveCurrencyId', nextId);
+  };
+
+  // Rate preview calculation (fee included).
   const matchingRate = rates.find(
     (r) => r.fromCurrency === sendCurrency?.code && r.toCurrency === receiveCurrency?.code,
   );
-  const estimatedReceive =
+  const feePercent = matchingRate?.feePercent ? parseFloat(matchingRate.feePercent) : 0;
+  const estimatedReceiveValue =
     matchingRate && amount > 0
-      ? (Number(amount) * parseFloat(matchingRate.rate)).toLocaleString('ru', {
-          minimumFractionDigits: 2,
-          maximumFractionDigits: 2,
-        })
+      ? Number(amount) * parseFloat(matchingRate.rate) * (1 - feePercent / 100)
       : null;
 
-  const handleSwapCurrencies = () => {
-    const prevSend = sendCurrencyId;
-    const prevReceive = receiveCurrencyId;
-    setValue('sendCurrencyId', prevReceive);
-    setValue('receiveCurrencyId', prevSend);
+  const handleSwapDirection = () => {
+    const values = getValues();
+    setValue('sendCurrencyId', values.receiveCurrencyId);
+    setValue('receiveCurrencyId', values.sendCurrencyId);
+    // Banks are tied to a currency side, so they travel with the swap.
+    setValue('senderBankId', values.receiverBankId);
+    setValue('receiverBankId', values.senderBankId);
   };
 
   const onSubmit = async (values: ExchangeFormValues) => {
@@ -120,6 +155,11 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handleNewRequest = () => {
+    setSuccessId(null);
+    reset(undefined, { keepDefaultValues: true });
   };
 
   // ── Success state ────────────────────────────────────────────
@@ -141,9 +181,17 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
           <p className="mt-3 text-xs text-brand">Переходим в личный кабинет...</p>
         ) : (
           <p className="mt-4 text-sm text-muted">
-            Войдите через Telegram для отслеживания статуса и общения с менеджером.
+            Войдите через Telegram в шапке сайта, чтобы отслеживать статус и общаться
+            с менеджером в чате.
           </p>
         )}
+        <button
+          className="mt-6 rounded-full border border-brand px-6 py-2.5 text-sm font-semibold text-brand transition hover:bg-brand hover:text-white"
+          onClick={handleNewRequest}
+          type="button"
+        >
+          Создать ещё одну заявку
+        </button>
       </Card>
     );
   }
@@ -175,7 +223,13 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
               icon={<span className="text-base">{flagGlyph(sendCurrency?.code)}</span>}
               label="Отправляете"
             >
-              <select className={fieldCls} {...register('sendCurrencyId')}>
+              <select
+                className={fieldCls}
+                {...register('sendCurrencyId', {
+                  onChange: (e: ChangeEvent<HTMLSelectElement>) =>
+                    handleCurrencyChange('send', e.target.value),
+                })}
+              >
                 {availableCurrencies.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -185,10 +239,11 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
             {/* Swap button */}
             <div className="absolute left-1/2 top-[calc(50%_+_6px)] z-10 -translate-x-1/2 -translate-y-1/2">
               <button
+                aria-label="Поменять направление обмена"
                 className="flex h-8 w-8 items-center justify-center rounded-full border-2 border-white bg-brand text-white shadow-float transition hover:bg-brand-dark active:scale-90"
-                onClick={handleSwapCurrencies}
+                onClick={handleSwapDirection}
                 type="button"
-                title="Поменять валюты"
+                title="Поменять направление обмена"
               >
                 <SwapIcon className="h-3.5 w-3.5" />
               </button>
@@ -199,7 +254,13 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
               icon={<span className="text-base">{flagGlyph(receiveCurrency?.code)}</span>}
               label="Получаете"
             >
-              <select className={fieldCls} {...register('receiveCurrencyId')}>
+              <select
+                className={fieldCls}
+                {...register('receiveCurrencyId', {
+                  onChange: (e: ChangeEvent<HTMLSelectElement>) =>
+                    handleCurrencyChange('receive', e.target.value),
+                })}
+              >
                 {availableCurrencies.map((c) => (
                   <option key={c.id} value={c.id}>{c.name}</option>
                 ))}
@@ -238,6 +299,7 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
           <Field error={errors.amount?.message} icon={<CoinsIcon />} label="Сумма перевода">
             <input
               className={fieldCls}
+              inputMode="decimal"
               min="1"
               step="1"
               type="number"
@@ -246,7 +308,7 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
           </Field>
 
           {/* Rate preview */}
-          {estimatedReceive && (
+          {estimatedReceiveValue !== null && (
             <div className="rounded-2xl border border-brand/20 bg-brand-soft/60 px-4 py-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-muted">Вы получите примерно</span>
@@ -255,11 +317,13 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
                 </span>
               </div>
               <div className="mt-1 text-xl font-bold text-brand">
-                ≈ {estimatedReceive}{' '}
+                ≈ {formatMoney(estimatedReceiveValue)}{' '}
                 <span className="text-base font-semibold">{receiveCurrency?.symbol ?? receiveCurrency?.code}</span>
               </div>
               <p className="mt-0.5 text-[11px] text-muted">
-                Итоговый курс подтверждается менеджером
+                {feePercent > 0
+                  ? `С учётом комиссии ${feePercent}%. Итоговый курс подтверждается менеджером`
+                  : 'Итоговый курс подтверждается менеджером'}
               </p>
             </div>
           )}
@@ -272,6 +336,7 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
             label="Telegram"
           >
             <input
+              autoComplete="username"
               className={fieldCls}
               placeholder="@username"
               type="text"
@@ -291,9 +356,9 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
           {/* Trust footer */}
           <div className="flex items-center justify-center gap-4 pt-1 text-[11px] text-muted">
             <span className="flex items-center gap-1">🔒 Безопасно</span>
-            <span className="h-3 w-px bg-line" />
+            <span aria-hidden="true" className="h-3 w-px bg-line" />
             <span className="flex items-center gap-1">⚡ Быстро</span>
-            <span className="h-3 w-px bg-line" />
+            <span aria-hidden="true" className="h-3 w-px bg-line" />
             <span className="flex items-center gap-1">💬 С поддержкой</span>
           </div>
         </div>

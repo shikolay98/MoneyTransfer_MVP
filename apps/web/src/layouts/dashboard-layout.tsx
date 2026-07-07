@@ -53,9 +53,9 @@ export const DashboardLayout = () => {
             </div>
           </div>
         </div>
-        <div className="bg-[#fbfcfb] px-6 py-8">
+        <main className="bg-[#fbfcfb] px-6 py-8" id="main-content">
           <Outlet />
-        </div>
+        </main>
       </div>
     </div>
   );

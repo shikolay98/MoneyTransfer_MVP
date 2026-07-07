@@ -1,6 +1,7 @@
 import type { PublicBootstrap } from '../types/public';
 
-const API_URL = import.meta.env.VITE_API_URL as string;
+// Empty VITE_API_URL means same-origin deployment (nginx proxies /api).
+const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
 const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
   const res = await fetch(`${API_URL}${path}`, {

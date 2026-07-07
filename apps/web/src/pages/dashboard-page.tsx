@@ -1,9 +1,16 @@
 import { useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
-import { fetchMyRequests, fetchMyChats, type ExchangeRequestItem, type ChatThread } from '../lib/api';
+import {
+  createChatThread,
+  fetchMyChats,
+  fetchMyRequests,
+  type ChatThread,
+  type ExchangeRequestItem,
+} from '../lib/api';
 import { useAuth } from '../lib/auth-context';
 import { useToast } from '../lib/toast-context';
+import { usePageTitle } from '../lib/use-page-title';
 
 const STATUS_LABELS: Record<string, string> = {
   NEW: 'Новая',
@@ -19,12 +26,21 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: 'bg-red-50 text-red-700',
 };
 
+const formatAmount = (value: string) => {
+  const num = Number(value);
+  return Number.isFinite(num) ? num.toLocaleString('ru') : value;
+};
+
 export const DashboardPage = () => {
   const { user } = useAuth();
   const { addToast } = useToast();
+  const navigate = useNavigate();
   const [requests, setRequests] = useState<ExchangeRequestItem[]>([]);
   const [chats, setChats] = useState<ChatThread[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isStartingChat, setIsStartingChat] = useState(false);
+
+  usePageTitle('Личный кабинет');
 
   useEffect(() => {
     Promise.all([fetchMyRequests(), fetchMyChats()])
@@ -36,8 +52,32 @@ export const DashboardPage = () => {
       .finally(() => setIsLoading(false));
   }, [addToast]);
 
+  const handleStartChat = async () => {
+    setIsStartingChat(true);
+    try {
+      const thread = await createChatThread();
+      void navigate(`/dashboard/chat/${thread.id}`);
+    } catch {
+      addToast('Не удалось открыть чат', 'error');
+    } finally {
+      setIsStartingChat(false);
+    }
+  };
+
   if (isLoading) {
-    return <div className="text-muted text-sm">Загрузка данных...</div>;
+    return (
+      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
+        <div className="grid gap-3 content-start">
+          <div className="skeleton h-8 w-48" />
+          <div className="skeleton h-24 w-full" />
+          <div className="skeleton h-24 w-full" />
+        </div>
+        <div className="grid gap-3 content-start">
+          <div className="skeleton h-40 w-full" />
+          <div className="skeleton h-32 w-full" />
+        </div>
+      </div>
+    );
   }
 
   return (
@@ -49,7 +89,6 @@ export const DashboardPage = () => {
           <Link
             className="rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white hover:bg-brand/90"
             to="/#exchange-form"
-            onClick={() => document.getElementById('exchange-form')?.scrollIntoView({ behavior: 'smooth' })}
           >
             + Новая заявка
           </Link>
@@ -57,12 +96,12 @@ export const DashboardPage = () => {
 
         {requests.length === 0 ? (
           <div className="rounded-[20px] border border-line bg-white p-8 text-center text-sm text-muted">
-            <div className="text-3xl mb-3">📋</div>
+            <div aria-hidden="true" className="text-3xl mb-3">📋</div>
             <div className="font-semibold text-ink mb-1">Заявок ещё нет</div>
             <p>Заполните форму обмена на главной странице, чтобы создать первую заявку.</p>
             <Link
               className="mt-4 inline-block rounded-full bg-brand px-5 py-2 text-xs font-semibold text-white hover:bg-brand/90"
-              to="/"
+              to="/#exchange-form"
             >
               Перейти к форме
             </Link>
@@ -82,7 +121,7 @@ export const DashboardPage = () => {
                       </span>
                     </div>
                     <div className="mt-1 text-sm text-muted">
-                      {r.amount} | {r.senderBank} → {r.receiverBank}
+                      {formatAmount(r.amount)} {r.sendCurrency} · {r.senderBank} → {r.receiverBank}
                     </div>
                     <div className="mt-1 text-xs text-muted">
                       {new Date(r.createdAt).toLocaleString('ru')}
@@ -110,7 +149,7 @@ export const DashboardPage = () => {
           <h3 className="text-base font-semibold text-ink mb-3">Профиль</h3>
           {user?.photoUrl && (
             <img
-              alt="avatar"
+              alt={`Фото профиля ${user.firstName ?? ''}`.trim()}
               className="mb-3 h-12 w-12 rounded-full"
               src={user.photoUrl}
             />
@@ -132,10 +171,6 @@ export const DashboardPage = () => {
                 <span className="text-ink font-medium">{user.email}</span>
               </div>
             )}
-            <div>
-              <span className="text-muted">Роль: </span>
-              <span className="text-ink font-medium">{user?.role === 'ADMIN' ? 'Менеджер' : 'Пользователь'}</span>
-            </div>
           </div>
         </div>
 
@@ -147,7 +182,7 @@ export const DashboardPage = () => {
 
           {chats.length === 0 ? (
             <div className="text-sm text-muted">
-              Чаты появятся после создания заявки или обращения.
+              Здесь появится переписка с менеджером по вашим заявкам.
             </div>
           ) : (
             <div className="grid gap-2">
@@ -165,6 +200,15 @@ export const DashboardPage = () => {
               ))}
             </div>
           )}
+
+          <button
+            className="mt-3 w-full rounded-full border border-brand px-4 py-2 text-xs font-semibold text-brand transition hover:bg-brand hover:text-white disabled:opacity-60"
+            disabled={isStartingChat}
+            onClick={() => void handleStartChat()}
+            type="button"
+          >
+            {isStartingChat ? 'Открываем чат...' : 'Написать менеджеру'}
+          </button>
         </div>
       </div>
     </div>

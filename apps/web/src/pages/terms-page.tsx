@@ -1,8 +1,11 @@
 import { useBootstrap } from '../lib/bootstrap-context';
+import { usePageTitle } from '../lib/use-page-title';
 
 export const TermsPage = () => {
   const { data } = useBootstrap();
   const section = data?.pages.terms[0];
+
+  usePageTitle('Условия использования');
 
   return (
     <div className="page-shell">
@@ -12,17 +15,23 @@ export const TermsPage = () => {
             Terms
           </p>
           <h1 className="mt-4 font-display text-4xl font-semibold">
-            {section?.title ?? 'Terms of Service'}
+            {section?.title ?? 'Условия использования'}
           </h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-white/72">
-            {section?.subtitle ?? 'Редактируемый юридический контент для публічної частини сервиса.'}
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-white/80">
+            {section?.subtitle ?? 'Правила работы сервиса и порядок проведения обмена.'}
           </p>
         </div>
 
         <div className="px-8 py-8 sm:px-10 sm:py-10">
-          <p className="max-w-4xl text-base leading-8 text-muted">
-            {section?.body ?? 'Контент будет загружаться из backend и редактироваться через админку.'}
-          </p>
+          <div className="max-w-4xl space-y-5">
+            {(section?.body ?? 'Документ готовится к публикации.')
+              .split('\n\n')
+              .map((paragraph, index) => (
+                <p key={index} className="text-base leading-8 text-muted">
+                  {paragraph}
+                </p>
+              ))}
+          </div>
         </div>
       </div>
     </div>

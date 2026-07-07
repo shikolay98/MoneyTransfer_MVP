@@ -3,8 +3,9 @@ import { Link, useParams } from 'react-router-dom';
 
 import { fetchThreadMessages, sendMessage, type ChatMessage } from '../lib/api';
 import { useAuth } from '../lib/auth-context';
-import { connectSocket } from '../lib/socket';
 import { useToast } from '../lib/toast-context';
+import { usePageTitle } from '../lib/use-page-title';
+import { appendUnique, useThreadSocket } from '../lib/use-thread-socket';
 
 export const ChatPage = () => {
   const { threadId } = useParams<{ threadId: string }>();
@@ -16,27 +17,20 @@ export const ChatPage = () => {
   const [isSending, setIsSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
+  usePageTitle('Чат с менеджером');
+
   useEffect(() => {
     if (!threadId) return;
+    setIsLoading(true);
+    setMessages([]);
 
     fetchThreadMessages(threadId)
       .then(setMessages)
       .catch(() => addToast('Не удалось загрузить сообщения', 'error'))
       .finally(() => setIsLoading(false));
-
-    const socket = connectSocket();
-    socket.emit('join_thread', threadId);
-
-    const handleNewMessage = (msg: ChatMessage) => {
-      setMessages((prev) => [...prev, msg]);
-    };
-    socket.on('new_message', handleNewMessage);
-
-    return () => {
-      socket.emit('leave_thread', threadId);
-      socket.off('new_message', handleNewMessage);
-    };
   }, [threadId, addToast]);
+
+  useThreadSocket(threadId, (msg) => setMessages((prev) => appendUnique(prev, msg)));
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -46,7 +40,9 @@ export const ChatPage = () => {
     if (!threadId || !input.trim()) return;
     setIsSending(true);
     try {
-      await sendMessage(threadId, input.trim());
+      const sent = await sendMessage(threadId, input.trim());
+      // Show the message immediately even if the socket echo is delayed or lost.
+      setMessages((prev) => appendUnique(prev, sent));
       setInput('');
     } catch (err) {
       addToast(err instanceof Error ? err.message : 'Ошибка отправки', 'error');
@@ -74,16 +70,28 @@ export const ChatPage = () => {
             <div className="text-center text-sm text-muted py-8">Загрузка...</div>
           ) : messages.length === 0 ? (
             <div className="text-center text-sm text-muted py-8">
-              <div className="text-3xl mb-2">💬</div>
+              <div aria-hidden="true" className="text-3xl mb-2">💬</div>
               Напишите сообщение менеджеру
             </div>
           ) : (
             messages.map((m) => {
               const isMe = m.senderId === user?.id;
+              const isSystem = m.senderRole === 'SYSTEM';
+
+              if (isSystem) {
+                return (
+                  <div key={m.id} className="flex justify-center">
+                    <div className="max-w-[85%] rounded-full bg-brand-soft/70 px-4 py-1.5 text-center text-xs text-brand-dark">
+                      {m.body}
+                    </div>
+                  </div>
+                );
+              }
+
               return (
                 <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
                   <div className={`max-w-[75%] rounded-[16px] px-4 py-2.5 text-sm ${isMe ? 'bg-brand text-white' : 'bg-[#f3f5f3] border border-line text-ink'}`}>
-                    {!isMe && m.senderRole !== 'SYSTEM' && (
+                    {!isMe && (
                       <div className="text-xs font-semibold mb-1 opacity-70">
                         {m.senderRole === 'ADMIN' ? 'Менеджер' : (m.sender?.firstName ?? 'Пользователь')}
                       </div>
@@ -103,8 +111,10 @@ export const ChatPage = () => {
         <div className="border-t border-line/70 p-3 bg-[#f9fbfa]">
           <div className="flex gap-2">
             <input
+              aria-label="Сообщение менеджеру"
               className="flex-1 rounded-[14px] border border-line bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
               disabled={isSending}
+              maxLength={4000}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' && !e.shiftKey) {
                   e.preventDefault();
@@ -116,12 +126,13 @@ export const ChatPage = () => {
               value={input}
             />
             <button
+              aria-label="Отправить сообщение"
               className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand/90 disabled:opacity-60"
               disabled={isSending || !input.trim()}
               onClick={() => void handleSend()}
               type="button"
             >
-              ➤
+              Отправить
             </button>
           </div>
         </div>

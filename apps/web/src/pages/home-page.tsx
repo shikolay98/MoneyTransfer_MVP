@@ -81,7 +81,10 @@ const renderFeatureIcon = (icon?: string) => {
 // ── Page ──────────────────────────────────────────────────────────────────────
 export const HomePage = () => {
   const { data, error, isLoading, refresh } = useBootstrap();
+  // Until the visitor interacts, the first FAQ item is open by default;
+  // after the first click the state is fully explicit (so it can be closed).
   const [openFaqId, setOpenFaqId] = useState<string | null>(null);
+  const [faqTouched, setFaqTouched] = useState(false);
 
   if (isLoading) {
     return (
@@ -126,11 +129,21 @@ export const HomePage = () => {
       (r.fromCurrency === 'UAH' && r.toCurrency === 'RUB'),
   );
 
-  const visibleFaqId = openFaqId ?? data.faq[0]?.id ?? null;
+  const visibleFaqId = faqTouched ? openFaqId : (data.faq[0]?.id ?? null);
+
+  const toggleFaq = (id: string, isOpen: boolean) => {
+    setFaqTouched(true);
+    setOpenFaqId(isOpen ? null : id);
+  };
 
   const scrollToForm = () => {
     document.getElementById('exchange-form')?.scrollIntoView({ behavior: 'smooth' });
   };
+
+  const heroTitleLines = (hero?.title ?? 'Обмен рублей\nи гривен —\nонлайн.').split('\n');
+  const heroSubtitle =
+    hero?.body ??
+    'Укажите параметры перевода, и менеджер подтвердит курс и детали в личном чате за 5–10 минут.';
 
   return (
     <div className="space-y-20 pb-10 sm:space-y-24">
@@ -149,23 +162,26 @@ export const HomePage = () => {
               RUB ↔ UAH · Безналичный обмен
             </div>
 
-            {/* Headline */}
+            {/* Headline (editable via admin → Контент → hero) */}
             <h1 className="mt-5 font-display font-semibold tracking-tight text-ink">
-              <span className="block text-5xl leading-[1.05] sm:text-6xl xl:text-[4.25rem]">
-                Обмен рублей
-              </span>
-              <span className="block text-5xl leading-[1.05] sm:text-6xl xl:text-[4.25rem] text-brand">
-                и гривен —
-              </span>
-              <span className="block text-5xl leading-[1.05] sm:text-6xl xl:text-[4.25rem]">
-                онлайн.
-              </span>
+              {heroTitleLines.map((line, index) => (
+                <span
+                  key={`${line}-${index}`}
+                  className={[
+                    'block text-5xl leading-[1.05] sm:text-6xl xl:text-[4.25rem]',
+                    heroTitleLines.length > 1 && index === 1 ? 'text-brand' : '',
+                  ]
+                    .filter(Boolean)
+                    .join(' ')}
+                >
+                  {line}
+                </span>
+              ))}
             </h1>
 
             {/* Subtitle */}
             <p className="mt-5 max-w-md text-base leading-7 text-muted sm:text-[1.05rem]">
-              Укажите параметры перевода, и менеджер подтвердит курс и детали
-              в личном чате за 5–10 минут.
+              {heroSubtitle}
             </p>
 
             {/* Stat chips */}
@@ -194,7 +210,11 @@ export const HomePage = () => {
               </Button>
               <button
                 className="rounded-full px-5 py-3 text-sm font-semibold text-muted transition hover:text-ink"
-                onClick={() => document.getElementById('faq')?.scrollIntoView({ behavior: 'smooth' })}
+                onClick={() =>
+                  document
+                    .getElementById('how-it-works')
+                    ?.scrollIntoView({ behavior: 'smooth' })
+                }
                 type="button"
               >
                 Как это работает?
@@ -324,6 +344,9 @@ export const HomePage = () => {
                         </div>
                         <div className="mt-1.5 text-sm text-muted">
                           1 {rate.fromCurrency} = {rate.rate} {rate.toCurrency}
+                          {rate.feePercent && parseFloat(rate.feePercent) > 0
+                            ? ` · комиссия ${rate.feePercent}%`
+                            : ''}
                         </div>
                       </div>
                       <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-brand-soft">
@@ -415,7 +438,7 @@ export const HomePage = () => {
           SECTION 5 — How it Works (Steps)
       ════════════════════════════════════════════════════════════ */}
       {transferSteps.length > 0 && (
-        <section className="page-shell">
+        <section className="page-shell" id="how-it-works">
           <Section
             eyebrow="Как это работает"
             title={transferInfo?.title ?? 'Как проходит обмен'}
@@ -456,16 +479,20 @@ export const HomePage = () => {
           <div className="mx-auto max-w-3xl space-y-3">
             {data.faq.map((item) => {
               const isOpen = visibleFaqId === item.id;
+              const panelId = `faq-panel-${item.id}`;
 
               return (
-                <Card
-                  key={item.id}
-                  className="cursor-pointer overflow-hidden p-0"
-                  onClick={() => setOpenFaqId(isOpen ? null : item.id)}
-                >
-                  <div className="flex items-center justify-between gap-4 px-6 py-5">
+                <Card key={item.id} className="overflow-hidden p-0">
+                  <button
+                    aria-controls={panelId}
+                    aria-expanded={isOpen}
+                    className="flex w-full items-center justify-between gap-4 px-6 py-5 text-left focus-ring"
+                    onClick={() => toggleFaq(item.id, isOpen)}
+                    type="button"
+                  >
                     <h3 className="text-base font-semibold text-ink">{item.question}</h3>
                     <span
+                      aria-hidden="true"
                       className={[
                         'flex h-8 w-8 shrink-0 items-center justify-center rounded-full border transition-all duration-200',
                         isOpen
@@ -479,7 +506,7 @@ export const HomePage = () => {
                         {isOpen ? '−' : '+'}
                       </span>
                     </span>
-                  </div>
+                  </button>
 
                   <div
                     className={[
@@ -488,6 +515,7 @@ export const HomePage = () => {
                     ]
                       .filter(Boolean)
                       .join(' ')}
+                    id={panelId}
                   >
                     <div className="overflow-hidden">
                       <p className="border-t border-line/50 bg-[#f8faf8] px-6 py-5 text-sm leading-7 text-muted">

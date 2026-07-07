@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 
 import { telegramLogin } from '../lib/api';
@@ -11,10 +11,22 @@ const BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME as string | unde
 const HEADER_SCROLL_DELTA = 40;
 
 const NAV_LINKS = [
-  { href: '#faq', label: 'FAQ' },
-  { href: '#about', label: 'О нас' },
   { href: '#exchange-form', label: 'Обмен' },
+  { href: '#rates', label: 'Курсы' },
+  { href: '#about', label: 'О нас' },
+  { href: '#faq', label: 'FAQ' },
 ];
+
+const readFooterMeta = (metadata: unknown) => {
+  const meta = metadata && typeof metadata === 'object' ? (metadata as Record<string, unknown>) : {};
+  const str = (key: string) => (typeof meta[key] === 'string' ? (meta[key] as string) : null);
+  return {
+    supportTelegram: str('supportTelegram'),
+    supportEmail: str('supportEmail'),
+    supportHours: str('supportHours'),
+    legalNote: str('legalNote'),
+  };
+};
 
 const TelegramLoginWidget = ({ onAuth }: { onAuth: (data: Record<string, unknown>) => void }) => {
   const containerRef = useRef<HTMLDivElement>(null);
@@ -58,6 +70,10 @@ export const PublicLayout = () => {
   const rates = data?.rates.slice(0, 2) ?? [];
   const isAuthed = !!user;
   const isBotConfigured = BOT_USERNAME && BOT_USERNAME !== 'replace_with_bot_username';
+  const footerSection = data?.pages.home.find((s) => s.key === 'footer');
+  const footerMeta = readFooterMeta(footerSection?.metadata);
+  const supportTelegram = footerMeta.supportTelegram ?? '@moneytransfer_support';
+  const supportHours = footerMeta.supportHours ?? '8:00 – 22:00';
 
   useEffect(() => {
     const handleScroll = () => {
@@ -91,23 +107,46 @@ export const PublicLayout = () => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, []);
 
+  // Close the mobile menu with Escape.
+  useEffect(() => {
+    if (!isMobileMenuOpen) return;
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setIsMobileMenuOpen(false);
+    };
+    window.addEventListener('keydown', onKeyDown);
+    return () => window.removeEventListener('keydown', onKeyDown);
+  }, [isMobileMenuOpen]);
+
   const handleNavClick = (href: string) => {
     setIsMobileMenuOpen(false);
+    if (location.pathname !== '/') {
+      // ScrollManager scrolls to the hash once the home page content mounts.
+      void navigate(`/${href}`);
+      return;
+    }
     const id = href.replace('#', '');
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleTelegramAuth = async (tgData: Record<string, unknown>) => {
-    setShowTgWidget(false);
-    try {
-      await telegramLogin(tgData);
-      await refresh();
-      addToast('Добро пожаловать!', 'success');
-      void navigate('/dashboard');
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Ошибка входа', 'error');
-    }
-  };
+  const handleTelegramAuth = useCallback(
+    async (tgData: Record<string, unknown>) => {
+      setShowTgWidget(false);
+      try {
+        await telegramLogin(tgData);
+        await refresh();
+        addToast('Добро пожаловать!', 'success');
+        void navigate('/dashboard');
+      } catch (err) {
+        addToast(err instanceof Error ? err.message : 'Ошибка входа', 'error');
+      }
+    },
+    [addToast, navigate, refresh],
+  );
+
+  const onTelegramAuth = useCallback(
+    (d: Record<string, unknown>) => void handleTelegramAuth(d),
+    [handleTelegramAuth],
+  );
 
   const handleLogout = async () => {
     await logout();
@@ -119,6 +158,14 @@ export const PublicLayout = () => {
 
   return (
     <div className="min-h-screen">
+      {/* ── Skip link ──────────────────────────────────────────── */}
+      <a
+        className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-full focus:bg-brand focus:px-5 focus:py-2.5 focus:text-sm focus:font-semibold focus:text-white"
+        href="#main-content"
+      >
+        Перейти к содержимому
+      </a>
+
       {/* ── Header ─────────────────────────────────────────────── */}
       <div
         className={[
@@ -144,7 +191,7 @@ export const PublicLayout = () => {
               </Link>
 
               {/* Desktop nav */}
-              <nav className="hidden items-center gap-1 md:flex">
+              <nav aria-label="Основная навигация" className="hidden items-center gap-1 md:flex">
                 {NAV_LINKS.map((link) => (
                   <button
                     key={link.href}
@@ -166,9 +213,9 @@ export const PublicLayout = () => {
                     </span>
                     <Link
                       className="rounded-full border border-line bg-white px-4 py-1.5 text-sm font-semibold text-ink transition hover:border-brand/60 hover:text-brand"
-                      to="/dashboard"
+                      to={user.role === 'ADMIN' ? '/admin' : '/dashboard'}
                     >
-                      Кабинет
+                      {user.role === 'ADMIN' ? 'Панель' : 'Кабинет'}
                     </Link>
                     <button
                       className="rounded-full bg-ink/5 px-4 py-1.5 text-sm font-semibold text-ink transition hover:bg-ink/10"
@@ -180,8 +227,9 @@ export const PublicLayout = () => {
                   </>
                 ) : showTgWidget && isBotConfigured ? (
                   <div className="flex items-center gap-2">
-                    <TelegramLoginWidget onAuth={(d) => void handleTelegramAuth(d)} />
+                    <TelegramLoginWidget onAuth={onTelegramAuth} />
                     <button
+                      aria-label="Скрыть виджет входа"
                       className="text-xs text-muted hover:text-ink"
                       onClick={() => setShowTgWidget(false)}
                       type="button"
@@ -198,22 +246,17 @@ export const PublicLayout = () => {
                     <TelegramIcon className="h-4 w-4" />
                     Войти через Telegram
                   </button>
-                ) : (
-                  <Link
-                    className="inline-flex items-center gap-2 rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-dark"
-                    to="/admin/login"
-                  >
-                    Войти
-                  </Link>
-                )}
+                ) : null}
               </div>
 
               {/* Mobile: hamburger */}
               <button
+                aria-controls="mobile-menu"
+                aria-expanded={isMobileMenuOpen}
                 className="flex h-9 w-9 items-center justify-center rounded-xl border border-line bg-white text-ink transition hover:bg-ink/5 md:hidden"
                 onClick={() => setIsMobileMenuOpen((v) => !v)}
                 type="button"
-                aria-label="Меню"
+                aria-label={isMobileMenuOpen ? 'Закрыть меню' : 'Открыть меню'}
               >
                 {isMobileMenuOpen ? <CloseIcon /> : <MenuIcon />}
               </button>
@@ -221,8 +264,8 @@ export const PublicLayout = () => {
 
             {/* Mobile menu */}
             {isMobileMenuOpen && (
-              <div className="border-t border-line/50 pb-4 pt-3 md:hidden">
-                <nav className="grid gap-1">
+              <div className="border-t border-line/50 pb-4 pt-3 md:hidden" id="mobile-menu">
+                <nav aria-label="Мобильная навигация" className="grid gap-1">
                   {NAV_LINKS.map((link) => (
                     <button
                       key={link.href}
@@ -240,9 +283,9 @@ export const PublicLayout = () => {
                       <Link
                         className="rounded-full bg-brand px-4 py-2.5 text-center text-sm font-semibold text-white"
                         onClick={() => setIsMobileMenuOpen(false)}
-                        to="/dashboard"
+                        to={user.role === 'ADMIN' ? '/admin' : '/dashboard'}
                       >
-                        Личный кабинет
+                        {user.role === 'ADMIN' ? 'Панель управления' : 'Личный кабинет'}
                       </Link>
                       <button
                         className="rounded-full border border-line px-4 py-2.5 text-sm font-semibold text-ink"
@@ -261,15 +304,7 @@ export const PublicLayout = () => {
                       <TelegramIcon className="h-4 w-4" />
                       Войти через Telegram
                     </button>
-                  ) : (
-                    <Link
-                      className="flex items-center justify-center rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white"
-                      onClick={() => setIsMobileMenuOpen(false)}
-                      to="/admin/login"
-                    >
-                      Войти
-                    </Link>
-                  )}
+                  ) : null}
                 </div>
               </div>
             )}
@@ -279,7 +314,14 @@ export const PublicLayout = () => {
 
       {/* ── Rates ticker (compact, below header) ─────────────────── */}
       {rates.length > 0 && (
-        <div className="fixed inset-x-0 top-[4.5rem] z-40 hidden md:block">
+        <div
+          className={[
+            'fixed inset-x-0 top-[4.5rem] z-40 hidden transition-all duration-300 ease-spring md:block',
+            isHeaderHidden ? '-translate-y-[220%] opacity-0' : 'translate-y-0 opacity-100',
+          ]
+            .filter(Boolean)
+            .join(' ')}
+        >
           <div className="page-shell">
             <div className="flex items-center gap-3 pt-1">
               {rates.map((rate) => (
@@ -292,14 +334,14 @@ export const PublicLayout = () => {
                   <span className="font-bold text-ink">{rate.rate}</span>
                 </div>
               ))}
-              <span className="text-[11px] text-muted/60">Курс подтверждается менеджером</span>
+              <span className="text-[11px] text-muted">Курс подтверждается менеджером</span>
             </div>
           </div>
         </div>
       )}
 
       {/* ── Main content ─────────────────────────────────────────── */}
-      <main className="pt-[5.5rem] md:pt-[6.5rem]">
+      <main className="pt-[5.5rem] md:pt-[7rem]" id="main-content">
         <Outlet />
       </main>
 
@@ -320,8 +362,13 @@ export const PublicLayout = () => {
               </p>
               <div className="mt-4 flex items-center gap-1.5 text-xs text-muted">
                 <span className="h-1.5 w-1.5 rounded-full bg-success" />
-                Работаем ежедневно с 8:00 до 22:00
+                Работаем ежедневно с {supportHours}
               </div>
+              {footerMeta.legalNote && (
+                <p className="mt-4 max-w-sm text-xs leading-5 text-muted/90">
+                  {footerMeta.legalNote}
+                </p>
+              )}
             </div>
 
             {/* Navigation */}
@@ -329,7 +376,7 @@ export const PublicLayout = () => {
               <div className="mb-3 text-xs font-semibold uppercase tracking-[0.18em] text-muted">
                 Навигация
               </div>
-              <nav className="grid gap-2">
+              <nav aria-label="Навигация в подвале" className="grid gap-2">
                 {NAV_LINKS.map((link) => (
                   <button
                     key={link.href}
@@ -357,26 +404,34 @@ export const PublicLayout = () => {
               <div className="grid gap-2 text-sm text-muted">
                 <a
                   className="flex items-center gap-2 transition hover:text-ink"
-                  href="https://t.me/moneytransfer_support"
+                  href={`https://t.me/${supportTelegram.replace('@', '')}`}
                   rel="noreferrer"
                   target="_blank"
                 >
                   <TelegramIcon className="h-4 w-4 text-brand" />
-                  @moneytransfer_support
+                  {supportTelegram}
                 </a>
+                {footerMeta.supportEmail && (
+                  <a
+                    className="transition hover:text-ink"
+                    href={`mailto:${footerMeta.supportEmail}`}
+                  >
+                    {footerMeta.supportEmail}
+                  </a>
+                )}
                 <div className="mt-2 rounded-2xl border border-line bg-[#f8faf8] px-4 py-3">
                   <div className="text-xs font-semibold text-ink">График работы</div>
-                  <div className="mt-1 text-xs text-muted">Пн–Вс, 8:00 – 22:00</div>
+                  <div className="mt-1 text-xs text-muted">Пн–Вс, {supportHours}</div>
                 </div>
               </div>
             </div>
           </div>
 
-          <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-line/50 pt-6 text-xs text-muted/60">
+          <div className="mt-10 flex flex-wrap items-center justify-between gap-4 border-t border-line/50 pt-6 text-xs text-muted">
             <span>© {new Date().getFullYear()} Money Transfer. Все права защищены.</span>
             <div className="flex gap-4">
-              <Link className="hover:text-muted transition" to="/privacy">Конфиденциальность</Link>
-              <Link className="hover:text-muted transition" to="/terms">Условия</Link>
+              <Link className="hover:text-ink transition" to="/privacy">Конфиденциальность</Link>
+              <Link className="hover:text-ink transition" to="/terms">Условия</Link>
             </div>
           </div>
         </div>

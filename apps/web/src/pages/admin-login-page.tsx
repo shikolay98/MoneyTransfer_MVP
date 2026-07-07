@@ -4,6 +4,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../lib/auth-context';
 import { adminLogin } from '../lib/api';
 import { useToast } from '../lib/toast-context';
+import { usePageTitle } from '../lib/use-page-title';
 
 export const AdminLoginPage = () => {
   const navigate = useNavigate();
@@ -12,6 +13,8 @@ export const AdminLoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isLoading, setIsLoading] = useState(false);
+
+  usePageTitle('Вход для менеджера');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -40,13 +43,17 @@ export const AdminLoginPage = () => {
           <form className="px-8 py-8" onSubmit={(e) => void handleSubmit(e)}>
             <div className="grid gap-4">
               <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+                <label
+                  className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.16em] text-muted"
+                  htmlFor="admin-email"
+                >
                   Email
                 </label>
                 <input
                   autoComplete="email"
                   className="w-full rounded-[18px] border border-line bg-[#f8faf8] px-4 py-2.5 text-sm text-ink outline-none transition focus:border-brand focus:bg-white focus:ring-4 focus:ring-brand/10"
                   disabled={isLoading}
+                  id="admin-email"
                   onChange={(e) => setEmail(e.target.value)}
                   required
                   type="email"
@@ -55,13 +62,17 @@ export const AdminLoginPage = () => {
               </div>
 
               <div>
-                <label className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.16em] text-muted">
+                <label
+                  className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.16em] text-muted"
+                  htmlFor="admin-password"
+                >
                   Пароль
                 </label>
                 <input
                   autoComplete="current-password"
                   className="w-full rounded-[18px] border border-line bg-[#f8faf8] px-4 py-2.5 text-sm text-ink outline-none transition focus:border-brand focus:bg-white focus:ring-4 focus:ring-brand/10"
                   disabled={isLoading}
+                  id="admin-password"
                   onChange={(e) => setPassword(e.target.value)}
                   required
                   type="password"
@@ -77,10 +88,6 @@ export const AdminLoginPage = () => {
                 {isLoading ? 'Вход...' : 'Войти'}
               </button>
             </div>
-
-            <p className="mt-5 text-center text-xs text-muted">
-              По умолчанию: admin@local.test / ChangeMe123!
-            </p>
           </form>
         </div>
       </div>

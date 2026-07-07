@@ -1,111 +1,130 @@
-# Money Transfer MVP
+# Money Transfer
 
-MVP веб-сервісу обміну валют і комунікації з менеджером. Проєкт побудований як монорепо з React frontend і Node.js backend.
+Веб-сервіс безготівкового обміну валют (RUB ↔ UAH) з особистим кабінетом, real-time чатом з менеджером і повноцінною адмінкою. Монорепо: React frontend + Fastify backend.
+
+## Можливості
+
+**Публічна частина**
+- Лендінг з CMS-контентом (hero, переваги, «як це працює», FAQ, футер) — все редагується з адмінки
+- Форма заявки на обмін з розрахунком суми до отримання (з урахуванням комісії)
+- Актуальні курси, тикер у шапці
+- Вхід через Telegram Login Widget (з серверною перевіркою підпису)
+- Сторінки Політики конфіденційності та Умов використання (CMS)
+- SEO: favicon, OG/Twitter-меги, robots.txt, заголовки сторінок
+
+**Кабінет користувача**
+- Історія заявок зі статусами
+- Real-time чат з менеджером (Socket.IO, автоперепідключення)
+- Створення заявки і «загального» чату з менеджером
+
+**Адмінка** (`/admin`)
+- Курси і комісії (з журналюванням змін)
+- CMS-контент сторінок та FAQ
+- Заявки (зміна статусів) і користувачі
+- Чати з користувачами в реальному часі
+- Всі мутації пишуться в аудит-лог (`AuditLog`)
 
 ## Технології
 
-- Frontend: React, Vite, Tailwind CSS, React Router, React Hook Form, Zod
-- Backend: Node.js, Fastify, Prisma ORM
-- Database: PostgreSQL
-- Real-time foundation: Socket.IO буде додано на наступних етапах
-- Tooling: TypeScript, ESLint, Prettier
+- **Frontend:** React 19, Vite 6, Tailwind CSS, React Router 7 (lazy-роути), React Hook Form + Zod, socket.io-client
+- **Backend:** Node.js 22, Fastify 5, Prisma 6, Socket.IO, Zod, @fastify/jwt (httpOnly cookie), @fastify/helmet, @fastify/rate-limit
+- **База:** PostgreSQL 16
+- **Тести:** Vitest
+- **Деплой:** Docker (multi-stage) + docker-compose + nginx (SPA + проксі API/WebSocket, same-origin без CORS)
+
+## Безпека
+
+- Socket.IO автентифікується JWT-кукою при handshake; підписка на тред можлива лише власнику або адміну
+- Перевірка підпису Telegram Login (HMAC, constant-time, TTL 24 год); у production плейсхолдерний токен не пройде валідацію env — сервер не стартує
+- Rate limiting: глобальний (300/хв) + жорсткі ліміти на логін (5/хв), Telegram-вхід (10/хв), заявки (10/хв), повідомлення (60/хв)
+- Глобальний error handler: помилки Prisma мапляться в 400/404/409, внутрішні деталі не витікають
+- Валідація всіх вхідних даних (Zod) з лімітами довжин і значень
+- `isActive` користувача перевіряється при вході та в `/api/auth/me`
+- Секрети-плейсхолдери блокуються в production на рівні валідації env
 
 ## Структура
 
 ```text
 apps/
-  api/    # Fastify API, Prisma schema, seed
-  web/    # React application, public/user/admin layouts
+  api/    # Fastify API, Prisma schema, seed, тести, Dockerfile
+  web/    # React SPA, nginx.conf, Dockerfile
 packages/
-  config/ # shared TypeScript presets
+  config/ # спільні TypeScript-пресети
 ```
 
-## Локальний запуск
+## Локальний запуск (розробка)
 
-### 1. Підготувати Node.js
-
-Рекомендована версія: Node.js 22 LTS.
-
-### 2. Підготувати env
+Потрібен Node.js 22 LTS і Docker (для PostgreSQL).
 
 ```bash
+# 1. Env
 cp .env.example .env
 cp .env.example apps/api/.env
 cp .env.example apps/web/.env
-```
 
-Заповни щонайменше:
-
-- `DATABASE_URL`
-- `COOKIE_SECRET`
-- `JWT_SECRET`
-- `TELEGRAM_BOT_TOKEN`
-- `TELEGRAM_BOT_USERNAME`
-- `TELEGRAM_LOGIN_DOMAIN`
-- `ADMIN_EMAIL`
-- `ADMIN_PASSWORD`
-
-### 3. Підняти PostgreSQL
-
-Через Docker:
-
-```bash
+# 2. База
 docker compose up -d postgres
-```
 
-Або використовуй власний локальний PostgreSQL і онови `DATABASE_URL`.
-
-### 4. Встановити залежності
-
-```bash
+# 3. Залежності та схема
 npm install
-```
-
-### 5. Ініціалізувати Prisma
-
-```bash
 npm run db:generate
 npm run db:migrate
 npm run db:seed
-```
 
-### 6. Запустити проєкт
-
-```bash
+# 4. Запуск (web: 5173, api: 4000)
 npm run dev
 ```
 
-Після старту:
+Адмінка: `http://localhost:5173/admin/login`, дані — `ADMIN_EMAIL` / `ADMIN_PASSWORD` з `.env`.
 
-- Frontend: `http://localhost:5173`
-- Backend: `http://localhost:4000`
-- Health endpoint: `http://localhost:4000/health`
+### Скрипти
 
-## Що вже є на Етапі 1
+| Команда | Опис |
+| --- | --- |
+| `npm run dev` | web + api у watch-режимі |
+| `npm run build` | збірка всіх пакетів |
+| `npm run lint` / `npm run format` | ESLint / Prettier |
+| `npm run typecheck` | перевірка типів у всіх пакетах |
+| `npm run test` | Vitest-тести API |
+| `npm run db:generate` / `db:migrate` / `db:seed` | Prisma |
 
-- монорепо та workspace scripts
-- базовий React frontend з публічним, user і admin layout
-- Fastify API з health-check і bootstrap endpoint для публічного контенту
-- Prisma schema з моделями під auth, контент, курси, заявки, чат, аудит
-- seed для admin user, контенту, FAQ, банків, валют і курсів
-- ESLint, Prettier, `.env.example`, `docker-compose.yml`
+### Seed
 
-## Що буде на наступних етапах
+Seed ідемпотентний і **не перезаписує** контент, курси чи пароль адміна при повторному запуску:
 
-- Етап 2: повноцінний лендінг з CMS-подачею контенту
-- Етап 3: Telegram login з серверною валідацією
-- Етап 4: кабінет користувача
-- Етап 5: real-time чат user ↔ admin
-- Етап 6: повноцінна адмінка
-- Етап 7: реальні заявки на обмін
-- Етап 8: полірування, SEO, фінальний onboarding
+- `SEED_FORCE_CONTENT=true npm run db:seed` — перезаписати CMS-контент і FAQ дефолтами
+- `SEED_RESET_ADMIN_PASSWORD=true npm run db:seed` — скинути пароль адміна до `ADMIN_PASSWORD`
 
-## Telegram для майбутніх етапів
+## Продакшн-деплой (Docker)
 
-Для входу через Telegram знадобиться:
+```bash
+# 1. Заповніть .env реальними значеннями:
+#    COOKIE_SECRET, JWT_SECRET (openssl rand -hex 32),
+#    TELEGRAM_BOT_TOKEN/USERNAME, ADMIN_EMAIL/PASSWORD.
+#    З плейсхолдерами API у production не стартує.
 
-- bot token від BotFather
-- username бота
-- домен, прив'язаний до Login Widget
+# 2. Повний стек: postgres + api (з міграціями) + web (nginx, порт 8080)
+docker compose up -d --build
 
-На Етапі 1 це вже закладено у `env`, але сама авторизація буде реалізована на Етапі 3.
+# 3. Первинний seed (адмін, валюти, банки, контент)
+docker compose exec api npx prisma db seed
+```
+
+nginx у контейнері web роздає SPA і проксить `/api`, `/socket.io`, `/health` на api — фронтенд і бекенд працюють same-origin, CORS не потрібен. Для HTTPS поставте зовнішній reverse-proxy (Caddy/Traefik/nginx з certbot) перед портом 8080 і лишіть `TRUST_PROXY=true`.
+
+Health-чеки: `GET /health` (liveness), `GET /health/ready` (readiness, перевіряє БД).
+
+## Telegram Login
+
+1. Створіть бота через [@BotFather](https://t.me/BotFather), отримайте токен
+2. Виконайте `/setdomain` і прив'яжіть домен сайту
+3. Заповніть `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`, `TELEGRAM_LOGIN_DOMAIN`, `VITE_TELEGRAM_BOT_USERNAME`
+
+У локальній розробці з плейсхолдерним токеном перевірка підпису вимкнена (тільки `NODE_ENV=development`); кнопка входу ховається, якщо бот не сконфігурований.
+
+## Дорожня карта
+
+- Server-side сесії з відкликанням (модель `Session` вже в схемі)
+- Пагінація адмінських списків понад 500 записів
+- Push/Telegram-нотифікації менеджеру про нові заявки
+- CAPTCHA на анонімну заявку при зростанні спаму

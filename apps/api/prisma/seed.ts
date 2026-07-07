@@ -18,9 +18,10 @@ const homeSections = [
   {
     page: ContentPage.HOME,
     key: 'hero',
-    title: 'Обмен безналичной гривны ↔ рубля онлайн',
+    // Каждая строка заголовка отделяется \n; вторая строка подсвечивается брендовым цветом.
+    title: 'Обмен рублей\nи гривен —\nонлайн.',
     subtitle: 'Hero block for public landing',
-    body: 'Войдите через Telegram и после этого вы получите доступ к личному чату с менеджером.',
+    body: 'Укажите параметры перевода, и менеджер подтвердит курс и детали в личном чате за 5–10 минут.',
     metadata: {
       eyebrow: 'RUB ↔ UAH',
       badge: 'Онлайн-обмен валют',
@@ -146,9 +147,17 @@ const policySections = [
   {
     page: ContentPage.PRIVACY,
     key: 'privacy_body',
-    title: 'Privacy Policy',
-    subtitle: 'Черновой редактируемый текст для MVP',
-    body: 'Placeholder privacy policy для MVP. Здесь позже будет полный документ о данных пользователя, хранении Telegram identity, cookie-based сессии, обработке сообщений и заявок.',
+    title: 'Политика конфиденциальности',
+    subtitle: 'Какие данные мы обрабатываем и зачем они нужны сервису.',
+    body: [
+      '1. Общие положения. Настоящая политика описывает, какие данные обрабатывает сервис Money Transfer (далее — «Сервис») и как они используются. Используя Сервис, вы соглашаетесь с условиями этой политики.',
+      '2. Какие данные мы собираем. При входе через Telegram мы получаем и храним: идентификатор Telegram, имя, фамилию (если указана), username и ссылку на фото профиля. При создании заявки на обмен мы сохраняем параметры заявки (валюты, банки, сумму), контакт для связи и примечания. Сообщения в чате с менеджером сохраняются для истории обращения.',
+      '3. Файлы cookie. Для авторизации Сервис использует один httpOnly cookie с токеном сессии. Мы не используем сторонние трекеры и рекламные cookie.',
+      '4. Как используются данные. Данные используются исключительно для обработки заявок на обмен, связи с вами через чат и поддержания работы личного кабинета. Мы не передаём данные третьим лицам, за исключением случаев, предусмотренных законом.',
+      '5. Хранение и защита. Данные хранятся в защищённой базе данных. Доступ к ним имеют только менеджеры Сервиса. Действия менеджеров с курсами, контентом и заявками журналируются.',
+      '6. Ваши права. Вы можете запросить удаление аккаунта и связанных с ним данных, обратившись к менеджеру в чате или по контактам, указанным на сайте.',
+      '7. Изменения политики. Мы можем обновлять эту политику. Актуальная версия всегда доступна на этой странице.',
+    ].join('\n\n'),
     metadata: {},
     sortOrder: 1,
   },
@@ -158,9 +167,18 @@ const termsSections = [
   {
     page: ContentPage.TERMS,
     key: 'terms_body',
-    title: 'Terms of Service',
-    subtitle: 'Черновой редактируемый текст для MVP',
-    body: 'Placeholder terms для MVP. Здесь позже будет оферта сервиса, описание логики заявок, общие ограничения, порядок подтверждения курса и правила коммуникации с менеджером.',
+    title: 'Условия использования',
+    subtitle: 'Правила работы сервиса и порядок проведения обмена.',
+    body: [
+      '1. О сервисе. Money Transfer — сервис информационного сопровождения безналичного обмена валют (RUB ↔ UAH). Все операции подтверждаются менеджером в личном чате.',
+      '2. Заявка на обмен. Заявка, созданная на сайте, не является публичной офертой и не обязывает стороны к совершению сделки. Итоговый курс, комиссия и порядок перевода подтверждаются менеджером до начала операции.',
+      '3. Курс и комиссия. Курсы на сайте носят справочный характер и могут быть изменены до подтверждения менеджером. После подтверждения курс фиксируется на время выполнения операции.',
+      '4. Порядок обмена. После подтверждения деталей менеджер передаёт реквизиты для перевода. Перевод средств выполняется только после подтверждения менеджером. Сервис не несёт ответственности за переводы, выполненные до подтверждения или на реквизиты, полученные вне чата Сервиса.',
+      '5. Ограничения. Сервис вправе отказать в проведении операции без объяснения причин, в том числе при подозрении на мошенничество. Запрещено использовать Сервис для легализации средств, полученных преступным путём.',
+      '6. Аккаунт. Для доступа к истории заявок и чату используется вход через Telegram. Вы несёте ответственность за сохранность доступа к своему аккаунту Telegram.',
+      '7. Поддержка. Все вопросы по операциям решаются в чате с менеджером или по контактам, указанным на сайте. Часы работы указаны в подвале сайта.',
+      '8. Изменения условий. Сервис может обновлять эти условия. Продолжение использования Сервиса означает согласие с актуальной версией.',
+    ].join('\n\n'),
     metadata: {},
     sortOrder: 1,
   },
@@ -169,23 +187,33 @@ const termsSections = [
 const faqItems = [
   {
     question: 'Как быстро проходит обмен?',
-    answer: 'В среднем 5–10 минут после подтверждения',
+    answer:
+      'В среднем 5–10 минут после подтверждения деталей менеджером. В часы пиковой нагрузки обмен может занять немного больше времени — менеджер предупредит об этом в чате.',
     sortOrder: 1,
   },
   {
     question: 'Как подтверждается курс?',
-    answer: 'Менеджер подтверждает курс в личном чате перед переводом',
+    answer:
+      'Курс на сайте — справочный. Перед переводом менеджер подтверждает итоговый курс в личном чате, после чего он фиксируется на время операции и не меняется.',
     sortOrder: 2,
   },
   {
-    question: 'Можно ли уточнить курс?',
-    answer: 'Да, менеджер всегда на связи',
+    question: 'Есть ли комиссия?',
+    answer:
+      'Комиссия уже учтена в курсе или показана отдельно в расчёте на сайте. Итоговую сумму к получению менеджер подтверждает до перевода — скрытых платежей нет.',
     sortOrder: 3,
   },
   {
     question: 'Нужно ли регистрироваться?',
-    answer: 'Да, чтоб видеть историю чата с менеджером, вам нужно иметь свой аккаунт на сайте',
+    answer:
+      'Заявку можно оставить без регистрации, указав Telegram для связи. Вход через Telegram открывает личный кабинет: историю заявок и чат с менеджером.',
     sortOrder: 4,
+  },
+  {
+    question: 'Это безопасно?',
+    answer:
+      'Перевод выполняется только после подтверждения деталей менеджером и только по реквизитам, полученным в чате сервиса. История заявки и вся переписка сохраняются в вашем кабинете.',
+    sortOrder: 5,
   },
 ];
 
@@ -207,8 +235,22 @@ const ratePairs = [
   { from: 'UAH', to: 'RUB', rate: '2.180000', feePercent: '0.80', note: '' },
 ];
 
+// Seed is intentionally create-only for editable content: re-running it must
+// never clobber changes made by the admin through the panel.
+// Set SEED_FORCE_CONTENT=true to overwrite content with the seed defaults.
+const forceContent = process.env.SEED_FORCE_CONTENT === 'true';
+
 const upsertSections = async () => {
   for (const section of [...homeSections, ...policySections, ...termsSections]) {
+    const seedData = {
+      title: section.title,
+      subtitle: section.subtitle,
+      body: section.body,
+      metadata: section.metadata,
+      sortOrder: section.sortOrder,
+      isPublished: true,
+    };
+
     await prisma.contentSection.upsert({
       where: {
         page_key: {
@@ -216,50 +258,25 @@ const upsertSections = async () => {
           key: section.key,
         },
       },
-      update: {
-        title: section.title,
-        subtitle: section.subtitle,
-        body: section.body,
-        metadata: section.metadata,
-        sortOrder: section.sortOrder,
-        isPublished: true,
-      },
+      update: forceContent ? seedData : {},
       create: {
         page: section.page,
         key: section.key,
-        title: section.title,
-        subtitle: section.subtitle,
-        body: section.body,
-        metadata: section.metadata,
-        sortOrder: section.sortOrder,
-        isPublished: true,
+        ...seedData,
       },
     });
   }
 };
 
 const upsertFaq = async () => {
-  await prisma.faqItem.updateMany({
-    where: {
-      question: {
-        notIn: faqItems.map((item) => item.question),
-      },
-    },
-    data: {
-      isPublished: false,
-    },
-  });
-
   for (const item of faqItems) {
     await prisma.faqItem.upsert({
       where: {
         question: item.question,
       },
-      update: {
-        answer: item.answer,
-        sortOrder: item.sortOrder,
-        isPublished: true,
-      },
+      update: forceContent
+        ? { answer: item.answer, sortOrder: item.sortOrder, isPublished: true }
+        : {},
       create: {
         question: item.question,
         answer: item.answer,
@@ -273,13 +290,16 @@ const upsertFaq = async () => {
 const main = async () => {
   const passwordHash = await bcrypt.hash(env.ADMIN_PASSWORD, 10);
 
+  // The admin password is set on create only. To recover a lost password,
+  // re-run the seed with SEED_RESET_ADMIN_PASSWORD=true.
+  const resetAdminPassword = process.env.SEED_RESET_ADMIN_PASSWORD === 'true';
+
   const admin = await prisma.user.upsert({
     where: { email: env.ADMIN_EMAIL },
     update: {
       role: UserRole.ADMIN,
-      passwordHash,
-      firstName: env.ADMIN_NAME,
       isActive: true,
+      ...(resetAdminPassword ? { passwordHash } : {}),
     },
     create: {
       email: env.ADMIN_EMAIL,
@@ -322,13 +342,8 @@ const main = async () => {
           toCurrencyId: toCurrency.id,
         },
       },
-      update: {
-        rate: pair.rate,
-        feePercent: pair.feePercent,
-        note: pair.note,
-        isActive: true,
-        updatedById: admin.id,
-      },
+      // Rates are managed by the admin — never overwrite them on re-seed.
+      update: {},
       create: {
         fromCurrencyId: fromCurrency.id,
         toCurrencyId: toCurrency.id,

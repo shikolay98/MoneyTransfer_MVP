@@ -2,6 +2,8 @@ import fastifyJwt from '@fastify/jwt';
 import type { FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 
+import { env } from '../config/env.js';
+
 declare module '@fastify/jwt' {
   interface FastifyJWT {
     payload: { userId: string; role: 'USER' | 'ADMIN' };
@@ -11,13 +13,13 @@ declare module '@fastify/jwt' {
 
 export default fp(async (app: FastifyInstance) => {
   await app.register(fastifyJwt, {
-    secret: process.env.JWT_SECRET ?? 'dev_secret_change_me',
+    secret: env.JWT_SECRET,
     cookie: {
-      cookieName: process.env.COOKIE_NAME ?? 'mt_session',
+      cookieName: env.COOKIE_NAME,
       signed: false,
     },
     sign: {
-      expiresIn: '7d',
+      expiresIn: `${env.SESSION_TTL_HOURS}h`,
     },
   });
 });

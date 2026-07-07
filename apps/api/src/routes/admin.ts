@@ -1,32 +1,45 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
+import { audit } from '../lib/audit.js';
 import { requireAdmin } from '../lib/auth-guard.js';
+import {
+  createChatMessage,
+  loadThreadMessages,
+  MAX_MESSAGE_LENGTH,
+} from '../lib/chat-service.js';
+
+const idParamsSchema = z.object({ id: z.string().min(1).max(64) });
+const threadParamsSchema = z.object({ threadId: z.string().min(1).max(64) });
 
 const updateRateSchema = z.object({
-  rate: z.coerce.number().positive(),
-  feePercent: z.coerce.number().min(0).max(100).optional(),
-  note: z.string().optional(),
+  rate: z.coerce.number().positive().max(1_000_000),
+  feePercent: z.coerce.number().min(0).max(100).nullish(),
+  note: z.string().max(500).nullish(),
   isActive: z.boolean().optional(),
 });
 
 const updateContentSchema = z.object({
-  title: z.string().optional(),
-  subtitle: z.string().optional(),
-  body: z.string().optional(),
+  title: z.string().max(500).optional(),
+  subtitle: z.string().max(500).optional(),
+  body: z.string().max(20_000).optional(),
   metadata: z.unknown().optional(),
   isPublished: z.boolean().optional(),
 });
 
 const updateFaqSchema = z.object({
-  question: z.string().min(1),
-  answer: z.string().min(1),
-  sortOrder: z.number().int().optional(),
+  question: z.string().min(1).max(500),
+  answer: z.string().min(1).max(5000),
+  sortOrder: z.number().int().min(0).max(10_000).optional(),
   isPublished: z.boolean().optional(),
 });
 
 const updateRequestStatusSchema = z.object({
   status: z.enum(['NEW', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']),
+});
+
+const requestsQuerySchema = z.object({
+  status: z.enum(['NEW', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED']).optional(),
 });
 
 const adminRoutes: FastifyPluginAsync = async (app) => {
@@ -52,22 +65,34 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.patch('/api/admin/rates/:id', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const params = idParamsSchema.safeParse(request.params);
     const body = updateRateSchema.safeParse(request.body);
-    if (!body.success) {
+    if (!params.success || !body.success) {
       return reply.status(400).send({ error: 'Неверные данные' });
     }
 
     const updated = await app.prisma.exchangeRate.update({
-      where: { id },
+      where: { id: params.data.id },
       data: {
         rate: body.data.rate,
-        feePercent: body.data.feePercent ?? undefined,
-        note: body.data.note ?? undefined,
+        feePercent: body.data.feePercent === undefined ? undefined : body.data.feePercent,
+        note: body.data.note === undefined ? undefined : body.data.note,
         isActive: body.data.isActive ?? undefined,
         updatedById: request.user.userId,
       },
       include: { fromCurrency: true, toCurrency: true },
+    });
+
+    audit(app, {
+      actorId: request.user.userId,
+      action: 'admin.rate_updated',
+      entityType: 'ExchangeRate',
+      entityId: updated.id,
+      payload: {
+        pair: `${updated.fromCurrency.code}/${updated.toCurrency.code}`,
+        rate: updated.rate.toString(),
+        feePercent: updated.feePercent?.toString() ?? null,
+      },
     });
 
     return {
@@ -82,21 +107,20 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
 
   // ── Content sections ────────────────────────────────────────────────────
   app.get('/api/admin/content', { preHandler: requireAdmin }, async () => {
-    const sections = await app.prisma.contentSection.findMany({
+    return app.prisma.contentSection.findMany({
       orderBy: [{ page: 'asc' }, { sortOrder: 'asc' }],
     });
-    return sections;
   });
 
   app.patch('/api/admin/content/:id', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const params = idParamsSchema.safeParse(request.params);
     const body = updateContentSchema.safeParse(request.body);
-    if (!body.success) {
+    if (!params.success || !body.success) {
       return reply.status(400).send({ error: 'Неверные данные' });
     }
 
     const updated = await app.prisma.contentSection.update({
-      where: { id },
+      where: { id: params.data.id },
       data: {
         title: body.data.title,
         subtitle: body.data.subtitle,
@@ -104,6 +128,14 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
         metadata: body.data.metadata !== undefined ? (body.data.metadata as object) : undefined,
         isPublished: body.data.isPublished,
       },
+    });
+
+    audit(app, {
+      actorId: request.user.userId,
+      action: 'admin.content_updated',
+      entityType: 'ContentSection',
+      entityId: updated.id,
+      payload: { page: updated.page, key: updated.key },
     });
 
     return updated;
@@ -115,14 +147,14 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
   });
 
   app.patch('/api/admin/faq/:id', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = request.params as { id: string };
+    const params = idParamsSchema.safeParse(request.params);
     const body = updateFaqSchema.safeParse(request.body);
-    if (!body.success) {
+    if (!params.success || !body.success) {
       return reply.status(400).send({ error: 'Неверные данные' });
     }
 
-    return app.prisma.faqItem.update({
-      where: { id },
+    const updated = await app.prisma.faqItem.update({
+      where: { id: params.data.id },
       data: {
         question: body.data.question,
         answer: body.data.answer,
@@ -130,6 +162,15 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
         isPublished: body.data.isPublished,
       },
     });
+
+    audit(app, {
+      actorId: request.user.userId,
+      action: 'admin.faq_updated',
+      entityType: 'FaqItem',
+      entityId: updated.id,
+    });
+
+    return updated;
   });
 
   app.post('/api/admin/faq', { preHandler: requireAdmin }, async (request, reply) => {
@@ -138,7 +179,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(400).send({ error: 'Неверные данные' });
     }
 
-    return app.prisma.faqItem.create({
+    const created = await app.prisma.faqItem.create({
       data: {
         question: body.data.question,
         answer: body.data.answer,
@@ -146,18 +187,40 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
         isPublished: body.data.isPublished ?? true,
       },
     });
+
+    audit(app, {
+      actorId: request.user.userId,
+      action: 'admin.faq_created',
+      entityType: 'FaqItem',
+      entityId: created.id,
+    });
+
+    return created;
   });
 
-  app.delete('/api/admin/faq/:id', { preHandler: requireAdmin }, async (request) => {
-    const { id } = request.params as { id: string };
-    await app.prisma.faqItem.delete({ where: { id } });
+  app.delete('/api/admin/faq/:id', { preHandler: requireAdmin }, async (request, reply) => {
+    const params = idParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({ error: 'Неверные данные' });
+    }
+
+    await app.prisma.faqItem.delete({ where: { id: params.data.id } });
+
+    audit(app, {
+      actorId: request.user.userId,
+      action: 'admin.faq_deleted',
+      entityType: 'FaqItem',
+      entityId: params.data.id,
+    });
+
     return { ok: true };
   });
 
   // ── Users ───────────────────────────────────────────────────────────────
   app.get('/api/admin/users', { preHandler: requireAdmin }, async () => {
-    const users = await app.prisma.user.findMany({
+    return app.prisma.user.findMany({
       orderBy: { createdAt: 'desc' },
+      take: 500,
       select: {
         id: true,
         role: true,
@@ -171,15 +234,17 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
         _count: { select: { exchangeRequests: true, chatThreads: true } },
       },
     });
-    return users;
   });
 
   // ── Exchange Requests ───────────────────────────────────────────────────
-  app.get('/api/admin/requests', { preHandler: requireAdmin }, async (request) => {
-    const { status } = request.query as { status?: string };
+  app.get('/api/admin/requests', { preHandler: requireAdmin }, async (request, reply) => {
+    const query = requestsQuerySchema.safeParse(request.query);
+    if (!query.success) {
+      return reply.status(400).send({ error: 'Неверный фильтр статуса' });
+    }
 
     const requests = await app.prisma.exchangeRequest.findMany({
-      where: status ? { status: status as never } : undefined,
+      where: query.data.status ? { status: query.data.status } : undefined,
       include: {
         sendCurrency: true,
         receiveCurrency: true,
@@ -189,6 +254,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
         chatThread: { select: { id: true } },
       },
       orderBy: { createdAt: 'desc' },
+      take: 500,
     });
 
     return requests.map((r) => ({
@@ -208,20 +274,32 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     }));
   });
 
-  app.patch('/api/admin/requests/:id/status', { preHandler: requireAdmin }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const body = updateRequestStatusSchema.safeParse(request.body);
-    if (!body.success) {
-      return reply.status(400).send({ error: 'Неверный статус' });
-    }
+  app.patch(
+    '/api/admin/requests/:id/status',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const params = idParamsSchema.safeParse(request.params);
+      const body = updateRequestStatusSchema.safeParse(request.body);
+      if (!params.success || !body.success) {
+        return reply.status(400).send({ error: 'Неверный статус' });
+      }
 
-    const updated = await app.prisma.exchangeRequest.update({
-      where: { id },
-      data: { status: body.data.status },
-    });
+      const updated = await app.prisma.exchangeRequest.update({
+        where: { id: params.data.id },
+        data: { status: body.data.status },
+      });
 
-    return { id: updated.id, status: updated.status };
-  });
+      audit(app, {
+        actorId: request.user.userId,
+        action: 'admin.request_status_updated',
+        entityType: 'ExchangeRequest',
+        entityId: updated.id,
+        payload: { status: updated.status },
+      });
+
+      return { id: updated.id, status: updated.status };
+    },
+  );
 
   // ── Chats ───────────────────────────────────────────────────────────────
   app.get('/api/admin/chats', { preHandler: requireAdmin }, async () => {
@@ -235,6 +313,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
         exchangeRequest: { select: { id: true, status: true } },
       },
       orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
+      take: 500,
     });
 
     return threads.map((t) => ({
@@ -247,45 +326,55 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     }));
   });
 
-  app.get('/api/admin/chats/:threadId/messages', { preHandler: requireAdmin }, async (request) => {
-    const { threadId } = request.params as { threadId: string };
+  app.get(
+    '/api/admin/chats/:threadId/messages',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const params = threadParamsSchema.safeParse(request.params);
+      if (!params.success) {
+        return reply.status(400).send({ error: 'Неверный идентификатор чата' });
+      }
 
-    const messages = await app.prisma.chatMessage.findMany({
-      where: { threadId },
-      include: { sender: { select: { id: true, firstName: true, role: true } } },
-      orderBy: { createdAt: 'asc' },
-    });
+      const thread = await app.prisma.chatThread.findUnique({
+        where: { id: params.data.threadId },
+        select: { id: true },
+      });
+      if (!thread) {
+        return reply.status(404).send({ error: 'Чат не найден' });
+      }
 
-    return messages;
-  });
+      return loadThreadMessages(app, thread.id);
+    },
+  );
 
-  app.post('/api/admin/chats/:threadId/messages', { preHandler: requireAdmin }, async (request, reply) => {
-    const { threadId } = request.params as { threadId: string };
-    const body = z.object({ body: z.string().min(1) }).safeParse(request.body);
-    if (!body.success) {
-      return reply.status(400).send({ error: 'Пустое сообщение' });
-    }
+  app.post(
+    '/api/admin/chats/:threadId/messages',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const params = threadParamsSchema.safeParse(request.params);
+      const body = z
+        .object({ body: z.string().trim().min(1).max(MAX_MESSAGE_LENGTH) })
+        .safeParse(request.body);
+      if (!params.success || !body.success) {
+        return reply.status(400).send({ error: 'Пустое или слишком длинное сообщение' });
+      }
 
-    const message = await app.prisma.chatMessage.create({
-      data: {
-        threadId,
+      const thread = await app.prisma.chatThread.findUnique({
+        where: { id: params.data.threadId },
+        select: { id: true },
+      });
+      if (!thread) {
+        return reply.status(404).send({ error: 'Чат не найден' });
+      }
+
+      return createChatMessage(app, {
+        threadId: thread.id,
         senderId: request.user.userId,
         senderRole: 'ADMIN',
         body: body.data.body,
-        status: 'SENT',
-      },
-      include: { sender: { select: { id: true, firstName: true, role: true } } },
-    });
-
-    await app.prisma.chatThread.update({
-      where: { id: threadId },
-      data: { lastMessageAt: new Date() },
-    });
-
-    app.io.to(`thread:${threadId}`).emit('new_message', message);
-
-    return message;
-  });
+      });
+    },
+  );
 };
 
 export default adminRoutes;

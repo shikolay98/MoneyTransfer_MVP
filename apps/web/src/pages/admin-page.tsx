@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { usePageTitle } from '../lib/use-page-title';
+import { appendUnique, useThreadSocket } from '../lib/use-thread-socket';
 import {
   adminDeleteFaq,
   adminFetchChats,
@@ -23,7 +25,6 @@ import {
   type AdminUser,
   type ChatMessage,
 } from '../lib/api';
-import { connectSocket } from '../lib/socket';
 import { useToast } from '../lib/toast-context';
 
 type Tab = 'rates' | 'content' | 'faq' | 'requests' | 'users' | 'chats';
@@ -143,11 +144,12 @@ const RatesPanel = () => {
               <div className="mt-3 grid grid-cols-3 gap-3">
                 {(['rate', 'feePercent', 'note'] as const).map((field) => (
                   <div key={field}>
-                    <label className="text-xs text-muted">
+                    <label className="text-xs text-muted" htmlFor={`rate-${field}-${r.id}`}>
                       {field === 'rate' ? 'Курс' : field === 'feePercent' ? 'Комиссия %' : 'Заметка'}
                     </label>
                     <input
                       className="mt-1 w-full rounded-[14px] border border-line bg-white px-3 py-1.5 text-sm text-ink outline-none focus:border-brand"
+                      id={`rate-${field}-${r.id}`}
                       onChange={(ev) => setEditing((prev) => ({ ...prev, [r.id]: { ...prev[r.id]!, [field]: ev.target.value } }))}
                       type={field === 'note' ? 'text' : 'number'}
                       step={field === 'note' ? undefined : '0.000001'}
@@ -237,10 +239,11 @@ const ContentPanel = () => {
                     <div className="mt-3 grid gap-3">
                       {(['title', 'subtitle', 'body'] as const).map((field) => (
                         <div key={field}>
-                          <label className="text-xs text-muted">{field === 'title' ? 'Заголовок' : field === 'subtitle' ? 'Подзаголовок' : 'Текст'}</label>
+                          <label className="text-xs text-muted" htmlFor={`content-${field}-${s.id}`}>{field === 'title' ? 'Заголовок' : field === 'subtitle' ? 'Подзаголовок' : 'Текст'}</label>
                           {field === 'body' ? (
                             <textarea
                               className="mt-1 w-full rounded-[14px] border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand"
+                              id={`content-${field}-${s.id}`}
                               onChange={(ev) => setEditing((prev) => ({ ...prev, [s.id]: { ...prev[s.id], [field]: ev.target.value } }))}
                               rows={4}
                               value={e[field] ?? ''}
@@ -248,6 +251,7 @@ const ContentPanel = () => {
                           ) : (
                             <input
                               className="mt-1 w-full rounded-[14px] border border-line bg-white px-3 py-1.5 text-sm text-ink outline-none focus:border-brand"
+                              id={`content-${field}-${s.id}`}
                               onChange={(ev) => setEditing((prev) => ({ ...prev, [s.id]: { ...prev[s.id], [field]: ev.target.value } }))}
                               value={e[field] ?? ''}
                             />
@@ -331,8 +335,8 @@ const FaqPanel = () => {
       {isCreating && (
         <div className="rounded-[20px] border-2 border-brand/20 bg-[#f0f7f4] p-5">
           <div className="grid gap-3">
-            <input className="w-full rounded-[14px] border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand" placeholder="Вопрос" value={newItem.question} onChange={(e) => setNewItem((p) => ({ ...p, question: e.target.value }))} />
-            <textarea className="w-full rounded-[14px] border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand" placeholder="Ответ" rows={3} value={newItem.answer} onChange={(e) => setNewItem((p) => ({ ...p, answer: e.target.value }))} />
+            <input aria-label="Вопрос" className="w-full rounded-[14px] border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand" placeholder="Вопрос" value={newItem.question} onChange={(e) => setNewItem((p) => ({ ...p, question: e.target.value }))} />
+            <textarea aria-label="Ответ" className="w-full rounded-[14px] border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand" placeholder="Ответ" rows={3} value={newItem.answer} onChange={(e) => setNewItem((p) => ({ ...p, answer: e.target.value }))} />
             <div className="flex gap-2">
               <button className="rounded-full bg-brand px-4 py-1.5 text-xs font-semibold text-white" onClick={() => void createItem()} type="button">Сохранить</button>
               <button className="rounded-full border border-line px-4 py-1.5 text-xs font-semibold text-muted" onClick={() => setIsCreating(false)} type="button">Отмена</button>
@@ -368,8 +372,8 @@ const FaqPanel = () => {
               <p className="mt-2 text-sm text-muted">{item.answer}</p>
             ) : (
               <div className="grid gap-3 mt-2">
-                <input className="w-full rounded-[14px] border border-line bg-white px-3 py-1.5 text-sm text-ink outline-none focus:border-brand" value={e.question ?? ''} onChange={(ev) => setEditing((prev) => ({ ...prev, [item.id]: { ...prev[item.id], question: ev.target.value } }))} />
-                <textarea className="w-full rounded-[14px] border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand" rows={3} value={e.answer ?? ''} onChange={(ev) => setEditing((prev) => ({ ...prev, [item.id]: { ...prev[item.id], answer: ev.target.value } }))} />
+                <input aria-label="Вопрос" className="w-full rounded-[14px] border border-line bg-white px-3 py-1.5 text-sm text-ink outline-none focus:border-brand" value={e.question ?? ''} onChange={(ev) => setEditing((prev) => ({ ...prev, [item.id]: { ...prev[item.id], question: ev.target.value } }))} />
+                <textarea aria-label="Ответ" className="w-full rounded-[14px] border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand" rows={3} value={e.answer ?? ''} onChange={(ev) => setEditing((prev) => ({ ...prev, [item.id]: { ...prev[item.id], answer: ev.target.value } }))} />
               </div>
             )}
           </div>
@@ -506,23 +510,23 @@ const ChatsPanel = () => {
   useEffect(() => {
     if (!selectedId) return;
 
+    // Clear stale messages of the previous thread and guard against
+    // out-of-order responses when switching threads quickly.
+    setMessages([]);
+    let cancelled = false;
+
     adminFetchThreadMessages(selectedId)
-      .then(setMessages)
+      .then((msgs) => {
+        if (!cancelled) setMessages(msgs);
+      })
       .catch(() => addToast('Не удалось загрузить сообщения', 'error'));
 
-    const socket = connectSocket();
-    socket.emit('join_thread', selectedId);
-
-    const handleNewMessage = (msg: ChatMessage) => {
-      setMessages((prev) => [...prev, msg]);
-    };
-    socket.on('new_message', handleNewMessage);
-
     return () => {
-      socket.emit('leave_thread', selectedId);
-      socket.off('new_message', handleNewMessage);
+      cancelled = true;
     };
   }, [selectedId, addToast]);
+
+  useThreadSocket(selectedId, (msg) => setMessages((prev) => appendUnique(prev, msg)));
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -532,7 +536,9 @@ const ChatsPanel = () => {
     if (!selectedId || !input.trim()) return;
     setIsSending(true);
     try {
-      await adminSendMessage(selectedId, input.trim());
+      const sent = await adminSendMessage(selectedId, input.trim());
+      // Show the message immediately even if the socket echo is delayed or lost.
+      setMessages((prev) => appendUnique(prev, sent));
       setInput('');
     } catch {
       addToast('Ошибка отправки', 'error');
@@ -594,8 +600,10 @@ const ChatsPanel = () => {
           <div className="border-t border-line/70 p-3">
             <div className="flex gap-2">
               <input
+                aria-label="Сообщение пользователю"
                 className="flex-1 rounded-[14px] border border-line bg-white px-4 py-2 text-sm text-ink outline-none focus:border-brand"
                 disabled={isSending}
+                maxLength={4000}
                 onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); } }}
                 onChange={(e) => setInput(e.target.value)}
                 placeholder="Сообщение..."
@@ -633,6 +641,8 @@ const TABS: { id: Tab; label: string }[] = [
 
 export const AdminPage = () => {
   const [tab, setTab] = useState<Tab>('rates');
+
+  usePageTitle('Панель управления');
 
   return (
     <div>

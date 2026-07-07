@@ -8,7 +8,25 @@
       "mcp__05f1e6f5-4a78-401a-bef6-5fef7a5b3dcb__notion-fetch",
       "Bash(git init *)",
       "Bash(git add *)",
-      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Baseline before production refactor *)"
+      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Baseline before production refactor *)",
+      "Bash(docker compose *)",
+      "Bash(npm install *)",
+      "Bash(pg_isready -h localhost -p 5432)",
+      "Bash(brew services *)",
+      "Bash(open -a Docker)",
+      "Bash(cd /Users/ilaishikolay/Moneytransfer_mvp/apps/api && ls node_modules/.bin/tsc 2>/dev/null || ls ../../node_modules/.bin/tsc 2>/dev/null; npx tsc -p tsconfig.json --listEmittedFiles --noEmit false --outDir /private/tmp/claude-501/-Users-ilaishikolay-Moneytransfer-mvp/a9a480b3-8c9b-49de-afc2-3613724e62a7/scratchpad/dist-check 2>&1 | head -20)",
+      "Bash(node dist/server.js)",
+      "Bash(echo \"exit=$?\")",
+      "Bash(grep -E '^tsc$|^prisma$|^tsx$')",
+      "Bash(../../node_modules/.bin/tsc -p tsconfig.json --listEmittedFiles --outDir /private/tmp/claude-501/-Users-ilaishikolay-Moneytransfer-mvp/a9a480b3-8c9b-49de-afc2-3613724e62a7/scratchpad/dist-verify)",
+      "Bash(grep -rn 'health\\\\|$queryRaw\\\\|SELECT 1' /Users/ilaishikolay/Moneytransfer_mvp/apps/api/src /Users/ilaishikolay/Moneytransfer_mvp/docker-compose.yml /Users/ilaishikolay/Moneytransfer_mvp/README.md)",
+      "Bash(python3 -c ' *)",
+      "Bash(python3)",
+      "Bash(SEED_FORCE_CONTENT=true npm run db:seed)",
+      "Bash(SEED_FORCE_CONTENT=true npx prisma db seed)",
+      "Bash(docker info *)",
+      "Bash(break)",
+      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Production refactor: security hardening, UX fixes, a11y/SEO, Docker deploy, tests *)"
     ]
   }
 }

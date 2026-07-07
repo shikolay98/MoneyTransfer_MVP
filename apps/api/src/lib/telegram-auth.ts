@@ -1,4 +1,4 @@
-import { createHash, createHmac } from 'node:crypto';
+import { createHash, createHmac, timingSafeEqual } from 'node:crypto';
 
 export interface TelegramAuthData {
   id: number;
@@ -10,6 +10,8 @@ export interface TelegramAuthData {
   hash: string;
 }
 
+const MAX_AUTH_AGE_SECONDS = 86_400;
+
 export const verifyTelegramAuth = (data: TelegramAuthData, botToken: string): boolean => {
   const { hash, ...rest } = data;
 
@@ -19,15 +21,23 @@ export const verifyTelegramAuth = (data: TelegramAuthData, botToken: string): bo
     .join('\n');
 
   const secretKey = createHash('sha256').update(botToken).digest();
-  const hmac = createHmac('sha256', secretKey).update(checkString).digest('hex');
+  const expected = createHmac('sha256', secretKey).update(checkString).digest();
 
-  const authDate = rest.auth_date;
-  const maxAge = 86400;
   const now = Math.floor(Date.now() / 1000);
-
-  if (now - authDate > maxAge) {
+  if (now - rest.auth_date > MAX_AUTH_AGE_SECONDS) {
     return false;
   }
 
-  return hmac === hash;
+  let received: Buffer;
+  try {
+    received = Buffer.from(hash, 'hex');
+  } catch {
+    return false;
+  }
+
+  if (received.length !== expected.length) {
+    return false;
+  }
+
+  return timingSafeEqual(received, expected);
 };

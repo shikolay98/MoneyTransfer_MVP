@@ -1,8 +1,11 @@
 import { useBootstrap } from '../lib/bootstrap-context';
+import { usePageTitle } from '../lib/use-page-title';
 
 export const PrivacyPage = () => {
   const { data } = useBootstrap();
   const section = data?.pages.privacy[0];
+
+  usePageTitle('Политика конфиденциальности');
 
   return (
     <div className="page-shell">
@@ -12,17 +15,23 @@ export const PrivacyPage = () => {
             Privacy
           </p>
           <h1 className="mt-4 font-display text-4xl font-semibold">
-            {section?.title ?? 'Privacy Policy'}
+            {section?.title ?? 'Политика конфиденциальности'}
           </h1>
-          <p className="mt-4 max-w-3xl text-sm leading-7 text-white/72">
-            {section?.subtitle ?? 'Редактируемый юридический контент для публічної частини сервиса.'}
+          <p className="mt-4 max-w-3xl text-sm leading-7 text-white/80">
+            {section?.subtitle ?? 'Какие данные обрабатывает сервис и как они используются.'}
           </p>
         </div>
 
         <div className="px-8 py-8 sm:px-10 sm:py-10">
-          <p className="max-w-4xl text-base leading-8 text-muted">
-            {section?.body ?? 'Контент будет загружаться из backend и редактироваться через админку.'}
-          </p>
+          <div className="max-w-4xl space-y-5">
+            {(section?.body ?? 'Документ готовится к публикации.')
+              .split('\n\n')
+              .map((paragraph, index) => (
+                <p key={index} className="text-base leading-8 text-muted">
+                  {paragraph}
+                </p>
+              ))}
+          </div>
         </div>
       </div>
     </div>

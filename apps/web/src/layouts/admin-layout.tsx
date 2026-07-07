@@ -51,9 +51,9 @@ export const AdminLayout = () => {
             </div>
           </div>
         </div>
-        <div className="bg-white px-6 py-8">
+        <main className="bg-white px-6 py-8" id="main-content">
           <Outlet />
-        </div>
+        </main>
       </div>
     </div>
   );
