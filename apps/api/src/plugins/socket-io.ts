@@ -42,16 +42,30 @@ export default fp(async (app: FastifyInstance) => {
       return;
     }
 
+    let payload: SocketIdentity;
     try {
-      const payload = app.jwt.verify<SocketIdentity>(token);
-      (socket.data as { identity?: SocketIdentity }).identity = {
-        userId: payload.userId,
-        role: payload.role,
-      };
-      next();
+      payload = app.jwt.verify<SocketIdentity>(token);
     } catch {
       next(new Error('Unauthorized'));
+      return;
     }
+
+    // Re-check the account against the DB so a deactivated user cannot keep
+    // a live socket until their JWT expires.
+    app.prisma.user
+      .findUnique({ where: { id: payload.userId }, select: { isActive: true } })
+      .then((user) => {
+        if (!user || !user.isActive) {
+          next(new Error('Unauthorized'));
+          return;
+        }
+        (socket.data as { identity?: SocketIdentity }).identity = {
+          userId: payload.userId,
+          role: payload.role,
+        };
+        next();
+      })
+      .catch(() => next(new Error('Unauthorized')));
   });
 
   io.on('connection', (socket) => {

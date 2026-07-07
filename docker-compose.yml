@@ -34,6 +34,13 @@ services:
       PORT: 4000
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/moneytransfer_mvp?schema=public
       TRUST_PROXY: 'true'
+      # Must equal the public browser origin: Socket.IO validates the handshake
+      # Origin server-side even though nginx makes REST same-origin. Override
+      # PUBLIC_ORIGIN (and rebuild web with matching VITE_API_URL) for a real domain.
+      PUBLIC_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      CORS_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      WEB_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      API_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
     command: sh -c "npx prisma migrate deploy && node dist/server.js"
     depends_on:
       postgres:

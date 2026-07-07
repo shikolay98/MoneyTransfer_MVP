@@ -24,10 +24,23 @@ export const ChatPage = () => {
     setIsLoading(true);
     setMessages([]);
 
+    // Guard against out-of-order responses when switching threads quickly.
+    let cancelled = false;
+
     fetchThreadMessages(threadId)
-      .then(setMessages)
-      .catch(() => addToast('Не удалось загрузить сообщения', 'error'))
-      .finally(() => setIsLoading(false));
+      .then((msgs) => {
+        if (!cancelled) setMessages(msgs);
+      })
+      .catch(() => {
+        if (!cancelled) addToast('Не удалось загрузить сообщения', 'error');
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoading(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
   }, [threadId, addToast]);
 
   useThreadSocket(threadId, (msg) => setMessages((prev) => appendUnique(prev, msg)));
