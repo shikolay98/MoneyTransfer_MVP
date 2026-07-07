@@ -27,9 +27,7 @@ export const Card = ({
       className={[
         'rounded-3xl transition-all duration-200 ease-spring',
         toneClasses[tone],
-        hover
-          ? 'cursor-pointer hover:-translate-y-0.5 hover:shadow-panel-hover'
-          : '',
+        hover ? 'hover:-translate-y-0.5 hover:shadow-panel-hover' : '',
         className,
       ]
         .filter(Boolean)

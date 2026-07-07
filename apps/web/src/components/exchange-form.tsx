@@ -201,7 +201,7 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
     <form id="exchange-form" onSubmit={handleSubmit((v) => void onSubmit(v))}>
       <Card className="overflow-hidden p-0 shadow-float">
         {/* Form header */}
-        <div className="bg-[#0b1730] px-6 py-4 text-white">
+        <div className="bg-[#0b1730] px-6 py-3.5 text-white">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/50">
@@ -215,7 +215,7 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
           </div>
         </div>
 
-        <div className="px-6 py-6 space-y-4">
+        <div className="px-6 py-5 space-y-3.5">
           {/* Currency row with swap */}
           <div className="relative grid grid-cols-2 gap-3">
             <Field
@@ -346,11 +346,11 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
 
           {/* Submit */}
           <button
-            className="w-full rounded-full bg-brand py-3.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.28)] transition-all hover:bg-brand-dark hover:shadow-[0_12px_28px_rgba(37,99,235,0.35)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-full bg-brand py-3 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.28)] transition-all hover:bg-brand-dark hover:shadow-[0_12px_28px_rgba(37,99,235,0.35)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isSubmitting}
             type="submit"
           >
-            {isSubmitting ? 'Отправляем заявку...' : 'Продолжить обмен →'}
+            {isSubmitting ? 'Отправляем заявку...' : 'Оставить заявку'}
           </button>
 
           {/* Trust footer */}

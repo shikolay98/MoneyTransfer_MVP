@@ -1,7 +1,14 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 
-import { fetchThreadMessages, sendMessage, type ChatMessage } from '../lib/api';
+import { AttachmentView } from '../components/chat/attachment-view';
+import { ChatComposer } from '../components/chat/chat-composer';
+import {
+  fetchThreadMessages,
+  sendMessage,
+  type Attachment,
+  type ChatMessage,
+} from '../lib/api';
 import { useAuth } from '../lib/auth-context';
 import { useToast } from '../lib/toast-context';
 import { usePageTitle } from '../lib/use-page-title';
@@ -12,9 +19,7 @@ export const ChatPage = () => {
   const { user } = useAuth();
   const { addToast } = useToast();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [isSending, setIsSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   usePageTitle('Чат с менеджером');
@@ -49,19 +54,11 @@ export const ChatPage = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const handleSend = async () => {
-    if (!threadId || !input.trim()) return;
-    setIsSending(true);
-    try {
-      const sent = await sendMessage(threadId, input.trim());
-      // Show the message immediately even if the socket echo is delayed or lost.
-      setMessages((prev) => appendUnique(prev, sent));
-      setInput('');
-    } catch (err) {
-      addToast(err instanceof Error ? err.message : 'Ошибка отправки', 'error');
-    } finally {
-      setIsSending(false);
-    }
+  const handleSend = async (body: string, attachments: Attachment[]) => {
+    if (!threadId) return;
+    // Show the message immediately even if the socket echo is delayed or lost.
+    const sent = await sendMessage(threadId, body, attachments);
+    setMessages((prev) => appendUnique(prev, sent));
   };
 
   return (
@@ -84,12 +81,13 @@ export const ChatPage = () => {
           ) : messages.length === 0 ? (
             <div className="text-center text-sm text-muted py-8">
               <div aria-hidden="true" className="text-3xl mb-2">💬</div>
-              Напишите сообщение менеджеру
+              Напишите сообщение менеджеру или прикрепите чек об оплате
             </div>
           ) : (
             messages.map((m) => {
               const isMe = m.senderId === user?.id;
               const isSystem = m.senderRole === 'SYSTEM';
+              const attachments = m.attachments ?? [];
 
               if (isSystem) {
                 return (
@@ -103,13 +101,21 @@ export const ChatPage = () => {
 
               return (
                 <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[75%] rounded-[16px] px-4 py-2.5 text-sm ${isMe ? 'bg-brand text-white' : 'bg-[#f1f5fb] border border-line text-ink'}`}>
+                  <div className={`max-w-[78%] rounded-[16px] px-4 py-2.5 text-sm ${isMe ? 'bg-brand text-white' : 'bg-[#f1f5fb] border border-line text-ink'}`}>
                     {!isMe && (
                       <div className="text-xs font-semibold mb-1 opacity-70">
                         {m.senderRole === 'ADMIN' ? 'Менеджер' : (m.sender?.firstName ?? 'Пользователь')}
                       </div>
                     )}
-                    {m.body}
+                    {m.body && <div className="whitespace-pre-wrap">{m.body}</div>}
+                    {attachments.map((att) => (
+                      <AttachmentView
+                        key={att.token}
+                        attachment={att}
+                        basePath={`/api/chats/${threadId}`}
+                        onDark={isMe}
+                      />
+                    ))}
                     <div className="text-xs mt-1 opacity-60">
                       {new Date(m.createdAt).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}
                     </div>
@@ -121,34 +127,11 @@ export const ChatPage = () => {
           <div ref={bottomRef} />
         </div>
 
-        <div className="border-t border-line/70 p-3 bg-[#f5f8fd]">
-          <div className="flex gap-2">
-            <input
-              aria-label="Сообщение менеджеру"
-              className="flex-1 rounded-[14px] border border-line bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
-              disabled={isSending}
-              maxLength={4000}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter' && !e.shiftKey) {
-                  e.preventDefault();
-                  void handleSend();
-                }
-              }}
-              onChange={(e) => setInput(e.target.value)}
-              placeholder="Введите сообщение..."
-              value={input}
-            />
-            <button
-              aria-label="Отправить сообщение"
-              className="rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition hover:bg-brand/90 disabled:opacity-60"
-              disabled={isSending || !input.trim()}
-              onClick={() => void handleSend()}
-              type="button"
-            >
-              Отправить
-            </button>
-          </div>
-        </div>
+        <ChatComposer
+          onError={(msg) => addToast(msg, 'error')}
+          onSend={handleSend}
+          placeholder="Введите сообщение или прикрепите чек..."
+        />
       </div>
     </div>
   );

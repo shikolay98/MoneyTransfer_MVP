@@ -4,7 +4,6 @@ import { ExchangeForm } from '../components/exchange-form';
 import { Button } from '../components/ui/button';
 import { Card } from '../components/ui/card';
 import {
-  ArrowDownIcon,
   CheckCircleIcon,
   CheckIcon,
   ClockIcon,
@@ -50,7 +49,6 @@ const REVIEWS = [
 // ── Data helpers ──────────────────────────────────────────────────────────────
 
 type CardItem = { title: string; description: string; icon?: string };
-type StatItem = { value: string; label: string };
 type StepItem = { title: string; description: string };
 type StringListItem = string;
 
@@ -72,18 +70,6 @@ const readCardList = (value: unknown, key: string): CardItem[] => {
     const i = (item as Record<string, unknown>).icon;
     if (typeof t !== 'string' || typeof d !== 'string') return [];
     return [{ title: t, description: d, icon: typeof i === 'string' ? i : undefined }];
-  });
-};
-
-const readStatList = (value: unknown, key: string): StatItem[] => {
-  const arr = readRecord(value)?.[key];
-  if (!Array.isArray(arr)) return [];
-  return arr.flatMap((item) => {
-    if (!item || typeof item !== 'object') return [];
-    const v = (item as Record<string, unknown>).value;
-    const l = (item as Record<string, unknown>).label;
-    if (typeof v !== 'string' || typeof l !== 'string') return [];
-    return [{ value: v, label: l }];
   });
 };
 
@@ -148,7 +134,6 @@ export const HomePage = () => {
   const about = data.pages.home.find((s) => s.key === 'about');
   const transferInfo = data.pages.home.find((s) => s.key === 'transfer_info');
 
-  const heroStats = readStatList(hero?.metadata, 'stats');
   const trustCards = readCardList(trust?.metadata, 'cards');
   const aboutHighlights = readStringList(about?.metadata, 'highlights');
   const aboutDetailCards = readCardList(about?.metadata, 'detailCards');
@@ -183,25 +168,25 @@ export const HomePage = () => {
           SECTION 1 — Hero + Exchange Form (navy panel)
       ════════════════════════════════════════════════════════════ */}
       <section className="page-shell" id="hero">
-        <div className="navy-panel relative overflow-hidden rounded-[32px] px-5 py-8 shadow-float sm:px-8 sm:py-10 lg:px-12 lg:py-14">
+        <div className="navy-panel relative overflow-hidden rounded-[32px] px-5 py-7 shadow-float sm:px-8 sm:py-9 lg:px-12 lg:py-8">
           <div aria-hidden="true" className="dot-grid pointer-events-none absolute inset-0 opacity-60" />
-          <div className="relative grid gap-10 lg:grid-cols-[1fr_420px] lg:items-center xl:grid-cols-[1fr_460px]">
+          <div className="relative grid gap-8 lg:grid-cols-[1fr_430px] lg:items-center xl:grid-cols-[1fr_460px]">
 
-            {/* Left: Hero text */}
+            {/* Left: Hero text — intentionally minimal; the form is the CTA */}
             <div className="flex flex-col justify-center">
               {/* Eyebrow badge */}
-              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-brand-accent backdrop-blur-sm">
+              <div className="reveal inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-brand-accent backdrop-blur-sm">
                 <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky" />
                 RUB ↔ UAH · Безналичный обмен
               </div>
 
               {/* Headline (editable via admin → Контент → hero) */}
-              <h1 className="mt-5 font-display font-semibold tracking-tight text-white">
+              <h1 className="reveal mt-5 font-display font-semibold tracking-tight text-white" style={{ transitionDelay: '60ms' }}>
                 {heroTitleLines.map((line, index) => (
                   <span
                     key={`${line}-${index}`}
                     className={[
-                      'block text-[2.75rem] leading-[1.05] sm:text-6xl xl:text-[4.25rem]',
+                      'block text-[2.6rem] leading-[1.05] sm:text-[3.25rem] xl:text-6xl',
                       heroTitleLines.length > 1 && index === 1 ? 'gradient-text' : '',
                     ]
                       .filter(Boolean)
@@ -213,49 +198,12 @@ export const HomePage = () => {
               </h1>
 
               {/* Subtitle */}
-              <p className="mt-5 max-w-md text-base leading-7 text-white/70 sm:text-[1.05rem]">
+              <p className="reveal mt-5 max-w-md text-base leading-7 text-white/70" style={{ transitionDelay: '120ms' }}>
                 {heroSubtitle}
               </p>
 
-              {/* Stat chips */}
-              {heroStats.length > 0 && (
-                <div className="mt-7 flex flex-wrap gap-2.5">
-                  {heroStats.map((stat) => (
-                    <div
-                      key={stat.label}
-                      className="flex items-center gap-2 rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm backdrop-blur-sm"
-                    >
-                      <span className="font-bold text-white">{stat.value}</span>
-                      <span className="text-white/60">{stat.label}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {/* CTA */}
-              <div className="mt-8 flex flex-wrap items-center gap-3">
-                <Button
-                  icon={<ArrowDownIcon className="h-4 w-4" />}
-                  onClick={scrollToForm}
-                  size="lg"
-                >
-                  Начать обмен
-                </Button>
-                <button
-                  className="rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white/80 transition hover:border-white/30 hover:text-white"
-                  onClick={() =>
-                    document
-                      .getElementById('how-it-works')
-                      ?.scrollIntoView({ behavior: 'smooth' })
-                  }
-                  type="button"
-                >
-                  Как это работает?
-                </button>
-              </div>
-
               {/* Trust signals */}
-              <div className="mt-7 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-white/60">
+              <div className="reveal mt-7 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-white/60" style={{ transitionDelay: '180ms' }}>
                 <span className="flex items-center gap-1.5">
                   <LockIcon className="h-3.5 w-3.5 text-brand-accent" />
                   Курс фиксируется до перевода
@@ -273,8 +221,8 @@ export const HomePage = () => {
               </div>
             </div>
 
-            {/* Right: Exchange form */}
-            <div>
+            {/* Right: Exchange form (the primary call to action) */}
+            <div className="reveal" style={{ transitionDelay: '120ms' }}>
               <ExchangeForm
                 banks={data.dictionaries.banks}
                 currencies={data.dictionaries.currencies}
@@ -290,8 +238,13 @@ export const HomePage = () => {
       ════════════════════════════════════════════════════════════ */}
       <section className="page-shell">
         <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
-          {STATS.map((stat) => (
-            <Card key={stat.label} className="flex items-center gap-4 p-5" hover>
+          {STATS.map((stat, i) => (
+            <Card
+              key={stat.label}
+              className="reveal flex items-center gap-4 p-5"
+              hover
+              style={{ transitionDelay: `${i * 70}ms` }}
+            >
               <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-brand">
                 {renderFeatureIcon(stat.icon)}
               </div>
@@ -321,12 +274,13 @@ export const HomePage = () => {
                 <Card
                   key={card.title}
                   className={[
-                    'p-6 xl:p-7',
+                    'reveal p-6 xl:p-7',
                     isFeatured ? 'sm:col-span-2 xl:col-span-1' : '',
                   ]
                     .filter(Boolean)
                     .join(' ')}
                   hover
+                  style={{ transitionDelay: `${idx * 70}ms` }}
                   tone={isFeatured ? 'dark' : 'default'}
                 >
                   <div
@@ -375,8 +329,13 @@ export const HomePage = () => {
         <section className="page-shell" id="rates">
           <Section eyebrow="Курсы валют" title="Актуальные направления обмена">
             <div className="grid gap-4 md:grid-cols-2">
-              {visibleRates.map((rate) => (
-                <Card key={rate.id} className="overflow-hidden p-0" hover>
+              {visibleRates.map((rate, i) => (
+                <Card
+                  key={rate.id}
+                  className="reveal overflow-hidden p-0"
+                  hover
+                  style={{ transitionDelay: `${i * 70}ms` }}
+                >
                   {/* Dark header strip */}
                   <div className="flex items-center justify-between bg-[#0b1730] px-6 py-4 text-white">
                     <div className="flex items-center gap-2.5">
@@ -500,7 +459,7 @@ export const HomePage = () => {
           >
             <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               {transferSteps.map((step, index) => (
-                <div key={step.title} className="relative">
+                <div key={step.title} className="reveal relative" style={{ transitionDelay: `${index * 70}ms` }}>
                   {/* Desktop connector */}
                   {index < transferSteps.length - 1 && (
                     <div className="absolute right-0 top-7 hidden h-px w-full translate-x-1/2 bg-gradient-to-r from-brand-accent to-transparent xl:block" />
@@ -532,8 +491,13 @@ export const HomePage = () => {
       <section className="page-shell" id="reviews">
         <Section eyebrow="Отзывы" title="Нам доверяют">
           <div className="grid gap-4 md:grid-cols-3">
-            {REVIEWS.map((review) => (
-              <Card key={review.name} className="flex flex-col p-6" hover>
+            {REVIEWS.map((review, i) => (
+              <Card
+                key={review.name}
+                className="reveal flex flex-col p-6"
+                hover
+                style={{ transitionDelay: `${i * 70}ms` }}
+              >
                 <div className="flex gap-0.5 text-sky" aria-label="Оценка 5 из 5">
                   {Array.from({ length: 5 }).map((_, i) => (
                     <span key={i} aria-hidden="true">★</span>

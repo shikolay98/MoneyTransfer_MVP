@@ -104,6 +104,30 @@ export const TelegramIcon = (props: HTMLAttributes<SVGSVGElement>) => (
   </svg>
 );
 
+export const PaperclipIcon = (props: HTMLAttributes<SVGSVGElement>) => (
+  <svg aria-hidden="true" className={iconClass} fill="none" viewBox="0 0 24 24" {...props}>
+    <path
+      d="M21 11.5 12.5 20a5 5 0 0 1-7-7l8-8a3.5 3.5 0 0 1 5 5l-8 8a2 2 0 0 1-3-3l7.5-7.5"
+      stroke="currentColor"
+      strokeLinecap="round"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+    />
+  </svg>
+);
+
+export const FileIcon = (props: HTMLAttributes<SVGSVGElement>) => (
+  <svg aria-hidden="true" className={iconClass} fill="none" viewBox="0 0 24 24" {...props}>
+    <path
+      d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8l-5-5Z"
+      stroke="currentColor"
+      strokeLinejoin="round"
+      strokeWidth="1.8"
+    />
+    <path d="M14 3v5h5" stroke="currentColor" strokeLinejoin="round" strokeWidth="1.8" />
+  </svg>
+);
+
 export const LockIcon = (props: HTMLAttributes<SVGSVGElement>) => (
   <svg aria-hidden="true" className={iconClass} fill="none" viewBox="0 0 24 24" {...props}>
     <rect x="5" y="11" width="14" height="10" rx="2" stroke="currentColor" strokeWidth="1.9" />

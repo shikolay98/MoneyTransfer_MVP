@@ -1,15 +1,37 @@
 import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
+import { ALLOWED_MIME, MAX_ATTACHMENTS_PER_MESSAGE, MAX_UPLOAD_BYTES } from '../lib/attachments.js';
 import { requireAuth } from '../lib/auth-guard.js';
 import {
   createChatMessage,
   loadThreadMessages,
   MAX_MESSAGE_LENGTH,
+  streamThreadAttachment,
 } from '../lib/chat-service.js';
 
-const messageSchema = z.object({ body: z.string().trim().min(1).max(MAX_MESSAGE_LENGTH) });
+const attachmentSchema = z.object({
+  token: z.string().regex(/^[a-f0-9]{8,64}$/),
+  name: z.string().min(1).max(200),
+  mime: z.string().refine((m) => !!ALLOWED_MIME[m], 'Недопустимый тип файла'),
+  size: z.number().int().min(0).max(MAX_UPLOAD_BYTES),
+});
+
+// A message must carry text or at least one attachment (receipts often have no text).
+export const messageSchema = z
+  .object({
+    body: z.string().trim().max(MAX_MESSAGE_LENGTH).optional().default(''),
+    attachments: z.array(attachmentSchema).max(MAX_ATTACHMENTS_PER_MESSAGE).optional().default([]),
+  })
+  .refine((v) => v.body.length > 0 || v.attachments.length > 0, {
+    message: 'Пустое сообщение',
+  });
+
 const threadParamsSchema = z.object({ threadId: z.string().min(1).max(64) });
+const attachmentParamsSchema = z.object({
+  threadId: z.string().min(1).max(64),
+  token: z.string().min(8).max(64),
+});
 
 const chatRoutes: FastifyPluginAsync = async (app) => {
   app.get('/api/chats/my', { preHandler: requireAuth }, async (request) => {
@@ -76,7 +98,29 @@ const chatRoutes: FastifyPluginAsync = async (app) => {
         senderId: request.user.userId,
         senderRole: 'USER',
         body: body.data.body,
+        attachments: body.data.attachments,
       });
+    },
+  );
+
+  app.get(
+    '/api/chats/:threadId/attachments/:token',
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const params = attachmentParamsSchema.safeParse(request.params);
+      if (!params.success) {
+        return reply.status(400).send({ error: 'Неверный запрос' });
+      }
+
+      const thread = await app.prisma.chatThread.findUnique({
+        where: { id: params.data.threadId },
+        select: { userId: true },
+      });
+      if (!thread || thread.userId !== request.user.userId) {
+        return reply.status(403).send({ error: 'Forbidden' });
+      }
+
+      return streamThreadAttachment(app, reply, params.data.threadId, params.data.token);
     },
   );
 

@@ -1,11 +1,13 @@
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
+import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
 import { Prisma } from '@prisma/client';
 import Fastify, { type FastifyError } from 'fastify';
 
 import { corsOrigins, env } from './config/env.js';
+import { ensureUploadDir, MAX_UPLOAD_BYTES } from './lib/attachments.js';
 import jwtPlugin from './plugins/jwt.js';
 import prismaPlugin from './plugins/prisma.js';
 import socketIoPlugin from './plugins/socket-io.js';
@@ -55,6 +57,15 @@ export const buildApp = async () => {
     secret: env.COOKIE_SECRET,
     hook: 'onRequest',
   });
+
+  await app.register(multipart, {
+    limits: {
+      fileSize: MAX_UPLOAD_BYTES,
+      files: 1,
+    },
+  });
+
+  await ensureUploadDir();
 
   await app.register(prismaPlugin);
   await app.register(jwtPlugin);

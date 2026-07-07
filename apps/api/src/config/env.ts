@@ -29,6 +29,8 @@ const envSchema = z
     ADMIN_EMAIL: z.string().email(),
     ADMIN_PASSWORD: z.string().min(8),
     ADMIN_NAME: z.string().min(1),
+    UPLOAD_DIR: z.string().min(1).default('uploads'),
+    MAX_UPLOAD_MB: z.coerce.number().positive().max(50).default(10),
   })
   .superRefine((value, ctx) => {
     if (value.NODE_ENV !== 'production') {

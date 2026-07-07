@@ -6,8 +6,9 @@ import { requireAdmin } from '../lib/auth-guard.js';
 import {
   createChatMessage,
   loadThreadMessages,
-  MAX_MESSAGE_LENGTH,
+  streamThreadAttachment,
 } from '../lib/chat-service.js';
+import { messageSchema } from './chat.js';
 
 const idParamsSchema = z.object({ id: z.string().min(1).max(64) });
 const threadParamsSchema = z.object({ threadId: z.string().min(1).max(64) });
@@ -352,9 +353,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     { preHandler: requireAdmin },
     async (request, reply) => {
       const params = threadParamsSchema.safeParse(request.params);
-      const body = z
-        .object({ body: z.string().trim().min(1).max(MAX_MESSAGE_LENGTH) })
-        .safeParse(request.body);
+      const body = messageSchema.safeParse(request.body);
       if (!params.success || !body.success) {
         return reply.status(400).send({ error: 'Пустое или слишком длинное сообщение' });
       }
@@ -372,7 +371,31 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
         senderId: request.user.userId,
         senderRole: 'ADMIN',
         body: body.data.body,
+        attachments: body.data.attachments,
       });
+    },
+  );
+
+  app.get(
+    '/api/admin/chats/:threadId/attachments/:token',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const params = z
+        .object({ threadId: z.string().min(1).max(64), token: z.string().min(8).max(64) })
+        .safeParse(request.params);
+      if (!params.success) {
+        return reply.status(400).send({ error: 'Неверный запрос' });
+      }
+
+      const thread = await app.prisma.chatThread.findUnique({
+        where: { id: params.data.threadId },
+        select: { id: true },
+      });
+      if (!thread) {
+        return reply.status(404).send({ error: 'Чат не найден' });
+      }
+
+      return streamThreadAttachment(app, reply, params.data.threadId, params.data.token);
     },
   );
 };

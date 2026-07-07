@@ -184,14 +184,17 @@ model ChatThread {
 }
 
 model ChatMessage {
-  id         String              @id @default(cuid())
-  threadId   String
-  senderId   String?
-  senderRole ChatParticipantRole
-  body       String
-  status     ChatMessageStatus   @default(SENT)
-  createdAt  DateTime            @default(now())
-  updatedAt  DateTime            @updatedAt
+  id          String              @id @default(cuid())
+  threadId    String
+  senderId    String?
+  senderRole  ChatParticipantRole
+  body        String
+  // Array of { token, name, mime, size } — files live on disk under UPLOAD_DIR,
+  // keyed by an unguessable token; retrieval is authorized per thread.
+  attachments Json?
+  status      ChatMessageStatus   @default(SENT)
+  createdAt   DateTime            @default(now())
+  updatedAt   DateTime            @updatedAt
   thread     ChatThread          @relation(fields: [threadId], references: [id], onDelete: Cascade)
   sender     User?               @relation("SenderMessages", fields: [senderId], references: [id], onDelete: SetNull)
 

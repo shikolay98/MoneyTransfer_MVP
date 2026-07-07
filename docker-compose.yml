@@ -41,7 +41,10 @@ services:
       CORS_ORIGIN: ${PUBLIC_ORIGIN:-http://localhost:8080}
       WEB_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
       API_URL: ${PUBLIC_ORIGIN:-http://localhost:8080}
+      UPLOAD_DIR: /app/uploads
     command: sh -c "npx prisma migrate deploy && node dist/server.js"
+    volumes:
+      - uploads-data:/app/uploads
     depends_on:
       postgres:
         condition: service_healthy
@@ -69,3 +72,4 @@ services:
 
 volumes:
   postgres-data:
+  uploads-data:

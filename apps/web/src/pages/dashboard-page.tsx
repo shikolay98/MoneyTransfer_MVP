@@ -108,8 +108,8 @@ export const DashboardPage = () => {
           </div>
         ) : (
           <div className="grid gap-3">
-            {requests.map((r) => (
-              <div key={r.id} className="rounded-[20px] border border-line bg-white p-5">
+            {requests.map((r) => {
+              const cardBody = (
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="flex items-center gap-2">
@@ -128,16 +128,28 @@ export const DashboardPage = () => {
                     </div>
                   </div>
                   {r.chatThreadId && (
-                    <Link
-                      className="shrink-0 rounded-full border border-brand px-3 py-1.5 text-xs font-semibold text-brand hover:bg-brand hover:text-white transition"
-                      to={`/dashboard/chat/${r.chatThreadId}`}
-                    >
-                      Чат
-                    </Link>
+                    <span className="shrink-0 rounded-full border border-brand px-3 py-1.5 text-xs font-semibold text-brand transition group-hover:bg-brand group-hover:text-white">
+                      Открыть чат
+                    </span>
                   )}
                 </div>
-              </div>
-            ))}
+              );
+
+              // The whole card opens the chat when a thread exists.
+              return r.chatThreadId ? (
+                <Link
+                  key={r.id}
+                  className="group block rounded-[20px] border border-line bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-panel"
+                  to={`/dashboard/chat/${r.chatThreadId}`}
+                >
+                  {cardBody}
+                </Link>
+              ) : (
+                <div key={r.id} className="rounded-[20px] border border-line bg-white p-5">
+                  {cardBody}
+                </div>
+              );
+            })}
           </div>
         )}
       </div>

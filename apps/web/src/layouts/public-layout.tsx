@@ -378,7 +378,7 @@ export const PublicLayout = () => {
       )}
 
       {/* ── Main content ─────────────────────────────────────────── */}
-      <main className="pt-[5.5rem] md:pt-[7rem]" id="main-content">
+      <main className="pt-[5.25rem] md:pt-[6.25rem]" id="main-content">
         <Outlet />
       </main>
 

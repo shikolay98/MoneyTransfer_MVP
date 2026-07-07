@@ -1,6 +1,8 @@
 node_modules
 dist
 coverage
+uploads
+apps/api/uploads
 .DS_Store
 .env
 .env.local

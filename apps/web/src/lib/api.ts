@@ -92,15 +92,48 @@ export type ChatThread = {
   exchangeRequest: { id: string; status: string } | null;
 };
 
+export type Attachment = {
+  token: string;
+  name: string;
+  mime: string;
+  size: number;
+};
+
 export type ChatMessage = {
   id: string;
   threadId: string;
   senderId: string | null;
   senderRole: 'USER' | 'ADMIN' | 'SYSTEM';
   body: string;
+  attachments?: Attachment[] | null;
   status: string;
   createdAt: string;
   sender: { id: string; firstName: string | null; role: string } | null;
+};
+
+// Uploads one file and returns its metadata to attach to a message.
+export const uploadFile = async (file: File): Promise<Attachment> => {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch(`${API_URL}/api/uploads`, {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  });
+  if (!res.ok) {
+    const err = (await res.json().catch(() => ({}))) as { error?: string; message?: string };
+    throw new Error(err.error ?? err.message ?? 'Не удалось загрузить файл');
+  }
+  return res.json() as Promise<Attachment>;
+};
+
+// Fetches an authorized attachment as an object URL (cookies flow via
+// credentials, which <img src> would not send cross-origin in dev).
+export const fetchAttachmentObjectUrl = async (path: string): Promise<string> => {
+  const res = await fetch(`${API_URL}${path}`, { credentials: 'include' });
+  if (!res.ok) throw new Error('Не удалось загрузить вложение');
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
 };
 
 export const fetchMyChats = () =>
@@ -109,10 +142,10 @@ export const fetchMyChats = () =>
 export const fetchThreadMessages = (threadId: string) =>
   request<ChatMessage[]>(`/api/chats/${threadId}/messages`);
 
-export const sendMessage = (threadId: string, body: string) =>
+export const sendMessage = (threadId: string, body: string, attachments: Attachment[] = []) =>
   request<ChatMessage>(`/api/chats/${threadId}/messages`, {
     method: 'POST',
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ body, attachments }),
   });
 
 export const createChatThread = (subject?: string) =>
@@ -220,8 +253,8 @@ export const adminUpdateRequestStatus = (id: string, status: string) =>
 export const adminFetchChats = () => request<AdminChatThread[]>('/api/admin/chats');
 export const adminFetchThreadMessages = (threadId: string) =>
   request<ChatMessage[]>(`/api/admin/chats/${threadId}/messages`);
-export const adminSendMessage = (threadId: string, body: string) =>
+export const adminSendMessage = (threadId: string, body: string, attachments: Attachment[] = []) =>
   request<ChatMessage>(`/api/admin/chats/${threadId}/messages`, {
     method: 'POST',
-    body: JSON.stringify({ body }),
+    body: JSON.stringify({ body, attachments }),
   });

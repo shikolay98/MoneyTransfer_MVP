@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 
+import { AttachmentView } from '../components/chat/attachment-view';
+import { ChatComposer } from '../components/chat/chat-composer';
 import { usePageTitle } from '../lib/use-page-title';
 import { appendUnique, useThreadSocket } from '../lib/use-thread-socket';
 import {
@@ -23,6 +25,7 @@ import {
   type AdminRate,
   type AdminRequest,
   type AdminUser,
+  type Attachment,
   type ChatMessage,
 } from '../lib/api';
 import { useToast } from '../lib/toast-context';
@@ -495,9 +498,7 @@ const ChatsPanel = () => {
   const [threads, setThreads] = useState<AdminChatThread[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
-  const [input, setInput] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const [isSending, setIsSending] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -532,19 +533,11 @@ const ChatsPanel = () => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
-  const send = async () => {
-    if (!selectedId || !input.trim()) return;
-    setIsSending(true);
-    try {
-      const sent = await adminSendMessage(selectedId, input.trim());
-      // Show the message immediately even if the socket echo is delayed or lost.
-      setMessages((prev) => appendUnique(prev, sent));
-      setInput('');
-    } catch {
-      addToast('Ошибка отправки', 'error');
-    } finally {
-      setIsSending(false);
-    }
+  const send = async (body: string, attachments: Attachment[]) => {
+    if (!selectedId) return;
+    // Show the message immediately even if the socket echo is delayed or lost.
+    const sent = await adminSendMessage(selectedId, body, attachments);
+    setMessages((prev) => appendUnique(prev, sent));
   };
 
   if (isLoading) return <div className="text-muted text-sm">Загрузка...</div>;
@@ -581,44 +574,47 @@ const ChatsPanel = () => {
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
-            {messages.map((m) => (
-              <div key={m.id} className={`flex ${m.senderRole === 'ADMIN' ? 'justify-end' : 'justify-start'}`}>
-                <div className={`max-w-[75%] rounded-[16px] px-4 py-2.5 text-sm ${m.senderRole === 'ADMIN' ? 'bg-brand text-white' : 'bg-white border border-line text-ink'}`}>
-                  {m.senderRole !== 'ADMIN' && (
-                    <div className="text-xs font-semibold mb-1 opacity-70">
-                      {m.sender?.firstName ?? 'Пользователь'}
+            {messages.map((m) => {
+              const isAdmin = m.senderRole === 'ADMIN';
+              const isSystem = m.senderRole === 'SYSTEM';
+              const attachments = m.attachments ?? [];
+
+              if (isSystem) {
+                return (
+                  <div key={m.id} className="flex justify-center">
+                    <div className="max-w-[85%] rounded-full bg-brand-soft/70 px-4 py-1.5 text-center text-xs text-brand-dark">
+                      {m.body}
                     </div>
-                  )}
-                  {m.body}
-                  <div className={`text-xs mt-1 opacity-60`}>{new Date(m.createdAt).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}</div>
+                  </div>
+                );
+              }
+
+              return (
+                <div key={m.id} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
+                  <div className={`max-w-[78%] rounded-[16px] px-4 py-2.5 text-sm ${isAdmin ? 'bg-brand text-white' : 'bg-white border border-line text-ink'}`}>
+                    {!isAdmin && (
+                      <div className="text-xs font-semibold mb-1 opacity-70">
+                        {m.sender?.firstName ?? 'Пользователь'}
+                      </div>
+                    )}
+                    {m.body && <div className="whitespace-pre-wrap">{m.body}</div>}
+                    {attachments.map((att) => (
+                      <AttachmentView
+                        key={att.token}
+                        attachment={att}
+                        basePath={`/api/admin/chats/${selectedId}`}
+                        onDark={isAdmin}
+                      />
+                    ))}
+                    <div className={`text-xs mt-1 opacity-60`}>{new Date(m.createdAt).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}</div>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
             <div ref={bottomRef} />
           </div>
 
-          <div className="border-t border-line/70 p-3">
-            <div className="flex gap-2">
-              <input
-                aria-label="Сообщение пользователю"
-                className="flex-1 rounded-[14px] border border-line bg-white px-4 py-2 text-sm text-ink outline-none focus:border-brand"
-                disabled={isSending}
-                maxLength={4000}
-                onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void send(); } }}
-                onChange={(e) => setInput(e.target.value)}
-                placeholder="Сообщение..."
-                value={input}
-              />
-              <button
-                className="rounded-full bg-brand px-4 py-2 text-sm font-semibold text-white disabled:opacity-60"
-                disabled={isSending || !input.trim()}
-                onClick={() => void send()}
-                type="button"
-              >
-                Отправить
-              </button>
-            </div>
-          </div>
+          <ChatComposer onError={(msg) => addToast(msg, 'error')} onSend={send} />
         </div>
       ) : (
         <div className="flex items-center justify-center rounded-[20px] border border-line bg-[#f5f8fd] text-sm text-muted">
