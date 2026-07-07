@@ -1,0 +1,54 @@
+# Render Blueprint — one-click deploy of Money Transfer (free tier).
+# Docs: https://render.com/docs/blueprint-spec
+#
+# The single web service builds and serves BOTH the API and the SPA on one
+# origin (no CORS/cookie issues), plus a free managed PostgreSQL.
+databases:
+  - name: moneytransfer-db
+    plan: free
+    databaseName: moneytransfer
+    user: moneytransfer
+
+services:
+  - type: web
+    name: moneytransfer
+    runtime: docker
+    plan: free
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 4000
+      - key: TRUST_PROXY
+        value: 'true'
+      - key: DATABASE_URL
+        fromDatabase:
+          name: moneytransfer-db
+          property: connectionString
+      # Auto-generated strong secrets.
+      - key: COOKIE_SECRET
+        generateValue: true
+      - key: JWT_SECRET
+        generateValue: true
+      - key: ADMIN_NAME
+        value: Manager
+      # ── Set these in the Render dashboard (Environment tab) ──────────────
+      # Telegram bot from @BotFather; TELEGRAM_LOGIN_DOMAIN must be the host of
+      # this service's URL, e.g. moneytransfer.onrender.com (no https://).
+      - key: TELEGRAM_BOT_TOKEN
+        sync: false
+      - key: TELEGRAM_BOT_USERNAME
+        sync: false
+      - key: TELEGRAM_LOGIN_DOMAIN
+        sync: false
+      # Same value as TELEGRAM_BOT_USERNAME — needed at build time for the SPA.
+      - key: VITE_TELEGRAM_BOT_USERNAME
+        sync: false
+      # First admin login. Change ADMIN_PASSWORD to something strong.
+      - key: ADMIN_EMAIL
+        sync: false
+      - key: ADMIN_PASSWORD
+        sync: false

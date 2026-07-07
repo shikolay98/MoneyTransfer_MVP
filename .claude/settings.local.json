@@ -47,7 +47,16 @@
       "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'UI redesign to navy/blue fintech style + dev demo login *)",
       "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Chat file attachments, hero simplification, animations, clickable cards *)",
       "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Rates in header, hero fits 13\" laptops, messenger-style chat, error-handler fix *)",
-      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Chat: multi-line message input \\(Telegram-style textarea\\) *)"
+      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Chat: multi-line message input \\(Telegram-style textarea\\) *)",
+      "Bash(command -v cloudflared)",
+      "Bash(echo \"cloudflared: $\\(command -v cloudflared || echo 'not installed'\\)\")",
+      "Bash(command -v ngrok)",
+      "Bash(echo \"ngrok: $\\(command -v ngrok || echo 'not installed'\\)\")",
+      "Bash(command -v docker)",
+      "Bash(docker build *)",
+      "Bash(docker rm *)",
+      "Bash(docker rmi *)",
+      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Multi-line chat input + one-service Render deploy \\(same-origin\\) *)"
     ]
   }
 }

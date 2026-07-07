@@ -2,7 +2,7 @@ import type { FastifyInstance } from 'fastify';
 import fp from 'fastify-plugin';
 import { Server as SocketIOServer, type Socket } from 'socket.io';
 
-import { corsOrigins, env } from '../config/env.js';
+import { corsOrigin, env } from '../config/env.js';
 
 interface SocketIdentity {
   userId: string;
@@ -21,7 +21,7 @@ const identityOf = (socket: Socket): SocketIdentity | null =>
 export default fp(async (app: FastifyInstance) => {
   const io = new SocketIOServer(app.server, {
     cors: {
-      origin: corsOrigins,
+      origin: corsOrigin,
       credentials: true,
     },
     path: '/socket.io',

@@ -11,9 +11,14 @@ const envSchema = z
   .object({
     NODE_ENV: z.enum(['development', 'test', 'production']).default('development'),
     PORT: z.coerce.number().int().positive().default(4000),
-    WEB_URL: z.string().url(),
-    API_URL: z.string().url(),
-    CORS_ORIGIN: z.string().min(1),
+    // URLs are informational/logging; default so the app boots before the
+    // public URL is known (e.g. first deploy on a PaaS).
+    WEB_URL: z.string().url().default('http://localhost:5173'),
+    API_URL: z.string().url().default('http://localhost:4000'),
+    // Optional: comma-separated allowed origins. When unset the app treats
+    // requests as same-origin (reflects the request origin) — the setup used
+    // when the API also serves the built frontend.
+    CORS_ORIGIN: z.string().optional(),
     TRUST_PROXY: z
       .enum(['true', 'false'])
       .default('false')
@@ -31,6 +36,9 @@ const envSchema = z
     ADMIN_NAME: z.string().min(1),
     UPLOAD_DIR: z.string().min(1).default('uploads'),
     MAX_UPLOAD_MB: z.coerce.number().positive().max(50).default(10),
+    // Absolute path to the built web app. When set, the API serves the SPA
+    // from this directory (same-origin deploy).
+    WEB_DIST: z.string().optional(),
   })
   .superRefine((value, ctx) => {
     if (value.NODE_ENV !== 'production') {
@@ -59,9 +67,16 @@ const envSchema = z
 
 export const env = envSchema.parse(process.env);
 
-// CORS_ORIGIN supports a comma-separated list for multi-domain deployments.
-export const corsOrigins = env.CORS_ORIGIN.split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean);
+// Allowed CORS/Socket.IO origins. A comma-separated list restricts to those
+// origins; when unset we reflect the request origin (`true`) — correct for a
+// same-origin deploy where the API also serves the frontend. Auth is still
+// gated by the httpOnly session cookie, so reflecting the origin is safe.
+const parsedOrigins = env.CORS_ORIGIN
+  ? env.CORS_ORIGIN.split(',')
+      .map((origin) => origin.trim())
+      .filter(Boolean)
+  : [];
+
+export const corsOrigin: string[] | true = parsedOrigins.length > 0 ? parsedOrigins : true;
 
 export type AppEnv = typeof env;

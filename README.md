@@ -117,6 +117,32 @@ nginx у контейнері web роздає SPA і проксить `/api`, `
 
 Health-чеки: `GET /health` (liveness), `GET /health/ready` (readiness, перевіряє БД).
 
+## Безкоштовний деплой на Render (без домену)
+
+Кореневий `Dockerfile` збирає **один образ**, де API роздає і зібраний фронтенд,
+і `/api` + `/socket.io` — усе з одного origin (без CORS/куки-проблем). `render.yaml`
+описує безкоштовний PostgreSQL + цей web-сервіс.
+
+1. Створіть Telegram-бота через [@BotFather](https://t.me/BotFather) → `/newbot` → збережіть **token** і **username**.
+2. Залийте репозиторій на GitHub.
+3. На [render.com](https://render.com) → **New → Blueprint** → підключіть репозиторій (Render підхопить `render.yaml`).
+4. У змінних сервісу (Environment) задайте: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_BOT_USERNAME`,
+   `VITE_TELEGRAM_BOT_USERNAME` (те саме, що username), `ADMIN_EMAIL`, `ADMIN_PASSWORD`,
+   а `TELEGRAM_LOGIN_DOMAIN` = хост вашого сервісу (напр. `moneytransfer.onrender.com`, без `https://`).
+5. Deploy. Після старту скопіюйте URL сервісу і в @BotFather виконайте `/setdomain` → вкажіть цей самий хост.
+
+`COOKIE_SECRET`/`JWT_SECRET` Render генерує сам; міграції та seed виконуються при старті.
+Health-check шлях уже налаштовано (`/health`). Free-план засинає після простою — перший
+захід прокидається ~30–50 сек. Завантажені файли на free-плані не переживають рестарт
+(ephemeral disk) — для постійного зберігання додайте платний диск або зовнішнє сховище.
+
+Той самий образ можна запустити будь-де:
+
+```bash
+docker build -t moneytransfer .
+docker run -p 4000:4000 --env-file .env -e WEB_DIST=/app/apps/web/dist moneytransfer
+```
+
 ## Telegram Login
 
 1. Створіть бота через [@BotFather](https://t.me/BotFather), отримайте токен

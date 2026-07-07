@@ -1,11 +1,14 @@
+import { existsSync } from 'node:fs';
+
 import cookie from '@fastify/cookie';
 import cors from '@fastify/cors';
 import helmet from '@fastify/helmet';
 import multipart from '@fastify/multipart';
 import rateLimit from '@fastify/rate-limit';
+import fastifyStatic from '@fastify/static';
 import Fastify, { type FastifyError } from 'fastify';
 
-import { corsOrigins, env } from './config/env.js';
+import { corsOrigin, env } from './config/env.js';
 import { ensureUploadDir, MAX_UPLOAD_BYTES } from './lib/attachments.js';
 import jwtPlugin from './plugins/jwt.js';
 import prismaPlugin from './plugins/prisma.js';
@@ -37,7 +40,7 @@ export const buildApp = async () => {
   });
 
   await app.register(cors, {
-    origin: corsOrigins,
+    origin: corsOrigin,
     credentials: true,
   });
 
@@ -101,6 +104,22 @@ export const buildApp = async () => {
   await app.register(jwtPlugin);
   await app.register(socketIoPlugin);
   await registerRoutes(app);
+
+  // Same-origin deploy: serve the built SPA and fall back to index.html for
+  // client-side routes (anything that is not an API path).
+  if (env.WEB_DIST && existsSync(env.WEB_DIST)) {
+    await app.register(fastifyStatic, {
+      root: env.WEB_DIST,
+      wildcard: false,
+    });
+
+    app.setNotFoundHandler((request, reply) => {
+      if (request.method !== 'GET' || request.url.startsWith('/api')) {
+        return reply.status(404).send({ error: 'Not found' });
+      }
+      return reply.sendFile('index.html');
+    });
+  }
 
   return app;
 };
