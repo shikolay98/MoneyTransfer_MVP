@@ -32,10 +32,10 @@ export const AdminLoginPage = () => {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-[#f3f5f3] px-4">
+    <div className="flex min-h-screen items-center justify-center bg-[#f1f5fb] px-4">
       <div className="w-full max-w-md">
         <div className="section-card overflow-hidden">
-          <div className="bg-[#16302d] px-8 py-7 text-white">
+          <div className="bg-[#0b1730] px-8 py-7 text-white">
             <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/70">Admin Space</p>
             <h1 className="mt-2 font-display text-2xl font-semibold">Вход для менеджера</h1>
           </div>
@@ -51,7 +51,7 @@ export const AdminLoginPage = () => {
                 </label>
                 <input
                   autoComplete="email"
-                  className="w-full rounded-[18px] border border-line bg-[#f8faf8] px-4 py-2.5 text-sm text-ink outline-none transition focus:border-brand focus:bg-white focus:ring-4 focus:ring-brand/10"
+                  className="w-full rounded-[18px] border border-line bg-[#f5f8fd] px-4 py-2.5 text-sm text-ink outline-none transition focus:border-brand focus:bg-white focus:ring-4 focus:ring-brand/10"
                   disabled={isLoading}
                   id="admin-email"
                   onChange={(e) => setEmail(e.target.value)}
@@ -70,7 +70,7 @@ export const AdminLoginPage = () => {
                 </label>
                 <input
                   autoComplete="current-password"
-                  className="w-full rounded-[18px] border border-line bg-[#f8faf8] px-4 py-2.5 text-sm text-ink outline-none transition focus:border-brand focus:bg-white focus:ring-4 focus:ring-brand/10"
+                  className="w-full rounded-[18px] border border-line bg-[#f5f8fd] px-4 py-2.5 text-sm text-ink outline-none transition focus:border-brand focus:bg-white focus:ring-4 focus:ring-brand/10"
                   disabled={isLoading}
                   id="admin-password"
                   onChange={(e) => setPassword(e.target.value)}

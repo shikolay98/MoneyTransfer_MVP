@@ -8,6 +8,7 @@ import { useToast } from '../lib/toast-context';
 import { CloseIcon, MenuIcon, TelegramIcon } from '../components/ui/icons';
 
 const BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME as string | undefined;
+const IS_DEV = import.meta.env.DEV;
 const HEADER_SCROLL_DELTA = 40;
 
 const NAV_LINKS = [
@@ -148,6 +149,23 @@ export const PublicLayout = () => {
     [handleTelegramAuth],
   );
 
+  // Dev-only demo login: the real Telegram widget needs a live bot + domain
+  // binding, so locally we log in with a mock identity. The dev API skips
+  // signature verification only when the bot token is still a placeholder;
+  // in production this button never renders and the payload would be rejected.
+  const handleDemoLogin = useCallback(() => {
+    setIsMobileMenuOpen(false);
+    void handleTelegramAuth({
+      id: 100000001,
+      first_name: 'Демо',
+      username: 'demo_user',
+      auth_date: Math.floor(Date.now() / 1000),
+      hash: 'devhash',
+    });
+  }, [handleTelegramAuth]);
+
+  const showDemoLogin = !isBotConfigured && IS_DEV;
+
   const handleLogout = async () => {
     await logout();
     addToast('Вы вышли из аккаунта', 'info');
@@ -183,7 +201,7 @@ export const PublicLayout = () => {
                 className="flex items-center gap-2.5 font-display text-lg font-semibold tracking-tight text-ink"
                 to="/"
               >
-                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-brand text-white text-xs font-bold select-none">
+                <span className="flex h-8 w-8 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-sky text-white text-xs font-bold shadow-sm select-none">
                   MT
                 </span>
                 <span className="hidden sm:block">Money Transfer</span>
@@ -246,6 +264,16 @@ export const PublicLayout = () => {
                     <TelegramIcon className="h-4 w-4" />
                     Войти через Telegram
                   </button>
+                ) : showDemoLogin ? (
+                  <button
+                    className="inline-flex items-center gap-2 rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-dark active:scale-95"
+                    onClick={handleDemoLogin}
+                    type="button"
+                    title="Демо-вход (только для локальной разработки)"
+                  >
+                    <TelegramIcon className="h-4 w-4" />
+                    Войти (демо)
+                  </button>
                 ) : null}
               </div>
 
@@ -304,6 +332,15 @@ export const PublicLayout = () => {
                       <TelegramIcon className="h-4 w-4" />
                       Войти через Telegram
                     </button>
+                  ) : showDemoLogin ? (
+                    <button
+                      className="flex w-full items-center justify-center gap-2 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white"
+                      onClick={handleDemoLogin}
+                      type="button"
+                    >
+                      <TelegramIcon className="h-4 w-4" />
+                      Войти (демо)
+                    </button>
                   ) : null}
                 </div>
               </div>
@@ -352,7 +389,7 @@ export const PublicLayout = () => {
             {/* Brand */}
             <div className="lg:col-span-2">
               <div className="flex items-center gap-2.5">
-                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-brand text-white text-xs font-bold">
+                <span className="flex h-9 w-9 items-center justify-center rounded-xl bg-gradient-to-br from-brand to-sky text-white text-xs font-bold shadow-sm">
                   MT
                 </span>
                 <span className="font-display text-xl font-semibold text-ink">Money Transfer</span>
@@ -419,7 +456,7 @@ export const PublicLayout = () => {
                     {footerMeta.supportEmail}
                   </a>
                 )}
-                <div className="mt-2 rounded-2xl border border-line bg-[#f8faf8] px-4 py-3">
+                <div className="mt-2 rounded-2xl border border-line bg-[#f5f8fd] px-4 py-3">
                   <div className="text-xs font-semibold text-ink">График работы</div>
                   <div className="mt-1 text-xs text-muted">Пн–Вс, {supportHours}</div>
                 </div>

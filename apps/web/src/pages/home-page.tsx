@@ -13,9 +13,39 @@ import {
   RateIcon,
   ShieldIcon,
   SupportIcon,
+  UsersIcon,
 } from '../components/ui/icons';
 import { Section } from '../components/ui/section';
 import { useBootstrap } from '../lib/bootstrap-context';
+
+// ── Static marketing content ────────────────────────────────────────────────
+const STATS = [
+  { icon: 'users', value: '7 000+', label: 'клиентов уже с нами' },
+  { icon: 'flash', value: '5–10 мин', label: 'среднее время обмена' },
+  { icon: 'rate', value: '7 500+', label: 'обменов ежемесячно' },
+  { icon: 'shield', value: '99.9%', label: 'успешных операций' },
+];
+
+const REVIEWS = [
+  {
+    name: 'Александр М.',
+    role: 'Постоянный клиент',
+    text: 'Меняю рубли на гривны здесь уже полгода. Курс всегда подтверждают заранее, деньги приходят за считанные минуты. Менеджер на связи даже поздно вечером.',
+    initial: 'А',
+  },
+  {
+    name: 'Ирина К.',
+    role: 'Фрилансер',
+    text: 'Пользуюсь для вывода оплаты от заказчиков. Понравилось, что весь процесс в одном чате — не надо никуда звонить. Всё прозрачно, без скрытых комиссий.',
+    initial: 'И',
+  },
+  {
+    name: 'Дмитрий В.',
+    role: 'Малый бизнес',
+    text: 'Регулярно перевожу суммы между картами разных банков. Ни одной проблемы за всё время, курс выгоднее, чем в банке. Рекомендую.',
+    initial: 'Д',
+  },
+];
 
 // ── Data helpers ──────────────────────────────────────────────────────────────
 
@@ -75,6 +105,7 @@ const renderFeatureIcon = (icon?: string) => {
   if (icon === 'shield') return <ShieldIcon className={cls} />;
   if (icon === 'support') return <SupportIcon className={cls} />;
   if (icon === 'flash') return <FlashIcon className={cls} />;
+  if (icon === 'users') return <UsersIcon className={cls} />;
   return <CheckIcon className={cls} />;
 };
 
@@ -149,105 +180,129 @@ export const HomePage = () => {
     <div className="space-y-20 pb-10 sm:space-y-24">
 
       {/* ════════════════════════════════════════════════════════════
-          SECTION 1 — Hero + Exchange Form
+          SECTION 1 — Hero + Exchange Form (navy panel)
       ════════════════════════════════════════════════════════════ */}
       <section className="page-shell" id="hero">
-        <div className="grid gap-8 lg:grid-cols-[1fr_420px] lg:items-start xl:grid-cols-[1fr_460px]">
+        <div className="navy-panel relative overflow-hidden rounded-[32px] px-5 py-8 shadow-float sm:px-8 sm:py-10 lg:px-12 lg:py-14">
+          <div aria-hidden="true" className="dot-grid pointer-events-none absolute inset-0 opacity-60" />
+          <div className="relative grid gap-10 lg:grid-cols-[1fr_420px] lg:items-center xl:grid-cols-[1fr_460px]">
 
-          {/* Left: Hero text */}
-          <div className="flex flex-col justify-center pt-4 lg:pt-8 lg:pb-4">
-            {/* Eyebrow badge */}
-            <div className="inline-flex w-fit items-center gap-2 rounded-full border border-brand/20 bg-brand-soft/80 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-brand">
-              <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-brand" />
-              RUB ↔ UAH · Безналичный обмен
-            </div>
-
-            {/* Headline (editable via admin → Контент → hero) */}
-            <h1 className="mt-5 font-display font-semibold tracking-tight text-ink">
-              {heroTitleLines.map((line, index) => (
-                <span
-                  key={`${line}-${index}`}
-                  className={[
-                    'block text-5xl leading-[1.05] sm:text-6xl xl:text-[4.25rem]',
-                    heroTitleLines.length > 1 && index === 1 ? 'text-brand' : '',
-                  ]
-                    .filter(Boolean)
-                    .join(' ')}
-                >
-                  {line}
-                </span>
-              ))}
-            </h1>
-
-            {/* Subtitle */}
-            <p className="mt-5 max-w-md text-base leading-7 text-muted sm:text-[1.05rem]">
-              {heroSubtitle}
-            </p>
-
-            {/* Stat chips */}
-            {heroStats.length > 0 && (
-              <div className="mt-6 flex flex-wrap gap-2.5">
-                {heroStats.map((stat) => (
-                  <div
-                    key={stat.label}
-                    className="flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2 text-sm shadow-sm"
-                  >
-                    <span className="font-bold text-ink">{stat.value}</span>
-                    <span className="text-muted">{stat.label}</span>
-                  </div>
-                ))}
+            {/* Left: Hero text */}
+            <div className="flex flex-col justify-center">
+              {/* Eyebrow badge */}
+              <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3.5 py-1.5 text-xs font-semibold uppercase tracking-[0.16em] text-brand-accent backdrop-blur-sm">
+                <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-sky" />
+                RUB ↔ UAH · Безналичный обмен
               </div>
-            )}
 
-            {/* CTA */}
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Button
-                icon={<ArrowDownIcon className="h-4 w-4" />}
-                onClick={scrollToForm}
-                size="lg"
-              >
-                Начать обмен
-              </Button>
-              <button
-                className="rounded-full px-5 py-3 text-sm font-semibold text-muted transition hover:text-ink"
-                onClick={() =>
-                  document
-                    .getElementById('how-it-works')
-                    ?.scrollIntoView({ behavior: 'smooth' })
-                }
-                type="button"
-              >
-                Как это работает?
-              </button>
+              {/* Headline (editable via admin → Контент → hero) */}
+              <h1 className="mt-5 font-display font-semibold tracking-tight text-white">
+                {heroTitleLines.map((line, index) => (
+                  <span
+                    key={`${line}-${index}`}
+                    className={[
+                      'block text-[2.75rem] leading-[1.05] sm:text-6xl xl:text-[4.25rem]',
+                      heroTitleLines.length > 1 && index === 1 ? 'gradient-text' : '',
+                    ]
+                      .filter(Boolean)
+                      .join(' ')}
+                  >
+                    {line}
+                  </span>
+                ))}
+              </h1>
+
+              {/* Subtitle */}
+              <p className="mt-5 max-w-md text-base leading-7 text-white/70 sm:text-[1.05rem]">
+                {heroSubtitle}
+              </p>
+
+              {/* Stat chips */}
+              {heroStats.length > 0 && (
+                <div className="mt-7 flex flex-wrap gap-2.5">
+                  {heroStats.map((stat) => (
+                    <div
+                      key={stat.label}
+                      className="flex items-center gap-2 rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm backdrop-blur-sm"
+                    >
+                      <span className="font-bold text-white">{stat.value}</span>
+                      <span className="text-white/60">{stat.label}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              {/* CTA */}
+              <div className="mt-8 flex flex-wrap items-center gap-3">
+                <Button
+                  icon={<ArrowDownIcon className="h-4 w-4" />}
+                  onClick={scrollToForm}
+                  size="lg"
+                >
+                  Начать обмен
+                </Button>
+                <button
+                  className="rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white/80 transition hover:border-white/30 hover:text-white"
+                  onClick={() =>
+                    document
+                      .getElementById('how-it-works')
+                      ?.scrollIntoView({ behavior: 'smooth' })
+                  }
+                  type="button"
+                >
+                  Как это работает?
+                </button>
+              </div>
+
+              {/* Trust signals */}
+              <div className="mt-7 flex flex-wrap items-center gap-x-4 gap-y-2 text-xs text-white/60">
+                <span className="flex items-center gap-1.5">
+                  <LockIcon className="h-3.5 w-3.5 text-brand-accent" />
+                  Курс фиксируется до перевода
+                </span>
+                <span aria-hidden="true" className="h-3 w-px bg-white/20" />
+                <span className="flex items-center gap-1.5">
+                  <SupportIcon className="h-3.5 w-3.5 text-brand-accent" />
+                  Менеджер в чате
+                </span>
+                <span aria-hidden="true" className="h-3 w-px bg-white/20" />
+                <span className="flex items-center gap-1.5">
+                  <ClockIcon className="h-3.5 w-3.5 text-brand-accent" />
+                  5–10 минут
+                </span>
+              </div>
             </div>
 
-            {/* Trust signals */}
-            <div className="mt-6 flex flex-wrap items-center gap-4 text-xs text-muted">
-              <span className="flex items-center gap-1.5">
-                <LockIcon className="h-3.5 w-3.5 text-brand" />
-                Курс фиксируется до перевода
-              </span>
-              <span className="h-3 w-px bg-line" />
-              <span className="flex items-center gap-1.5">
-                <SupportIcon className="h-3.5 w-3.5 text-brand" />
-                Менеджер в чате
-              </span>
-              <span className="h-3 w-px bg-line" />
-              <span className="flex items-center gap-1.5">
-                <ClockIcon className="h-3.5 w-3.5 text-brand" />
-                5–10 минут
-              </span>
+            {/* Right: Exchange form */}
+            <div>
+              <ExchangeForm
+                banks={data.dictionaries.banks}
+                currencies={data.dictionaries.currencies}
+                rates={data.rates}
+              />
             </div>
           </div>
+        </div>
+      </section>
 
-          {/* Right: Exchange form */}
-          <div className="lg:sticky lg:top-28">
-            <ExchangeForm
-              banks={data.dictionaries.banks}
-              currencies={data.dictionaries.currencies}
-              rates={data.rates}
-            />
-          </div>
+      {/* ════════════════════════════════════════════════════════════
+          SECTION 1.5 — Stats band
+      ════════════════════════════════════════════════════════════ */}
+      <section className="page-shell">
+        <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+          {STATS.map((stat) => (
+            <Card key={stat.label} className="flex items-center gap-4 p-5" hover>
+              <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-brand-soft text-brand">
+                {renderFeatureIcon(stat.icon)}
+              </div>
+              <div>
+                <div className="font-display text-2xl font-bold leading-none text-ink">
+                  {stat.value}
+                </div>
+                <div className="mt-1 text-xs leading-4 text-muted">{stat.label}</div>
+              </div>
+            </Card>
+          ))}
         </div>
       </section>
 
@@ -323,7 +378,7 @@ export const HomePage = () => {
               {visibleRates.map((rate) => (
                 <Card key={rate.id} className="overflow-hidden p-0" hover>
                   {/* Dark header strip */}
-                  <div className="flex items-center justify-between bg-[#0f2724] px-6 py-4 text-white">
+                  <div className="flex items-center justify-between bg-[#0b1730] px-6 py-4 text-white">
                     <div className="flex items-center gap-2.5">
                       <span className="flex h-1.5 w-1.5 animate-pulse rounded-full bg-success" />
                       <span className="text-xs font-semibold uppercase tracking-[0.2em] text-white/70">
@@ -353,7 +408,7 @@ export const HomePage = () => {
                         <RateIcon className="h-6 w-6 text-brand" />
                       </div>
                     </div>
-                    <div className="mt-4 flex items-center gap-1.5 rounded-2xl border border-line bg-[#f8faf8] px-4 py-2.5 text-xs text-muted">
+                    <div className="mt-4 flex items-center gap-1.5 rounded-2xl border border-line bg-[#f5f8fd] px-4 py-2.5 text-xs text-muted">
                       <ShieldIcon className="h-3.5 w-3.5 shrink-0 text-brand" />
                       Курс подтверждается менеджером перед переводом
                     </div>
@@ -373,7 +428,7 @@ export const HomePage = () => {
           <div className="overflow-hidden rounded-3xl border border-line/60 shadow-panel">
             <div className="grid lg:grid-cols-2">
               {/* Dark left panel */}
-              <div className="bg-[#0f2724] px-8 py-10 text-white sm:px-10 sm:py-12">
+              <div className="bg-[#0b1730] px-8 py-10 text-white sm:px-10 sm:py-12">
                 <div className="inline-flex items-center gap-1.5 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-white/70">
                   О сервисе
                 </div>
@@ -407,7 +462,7 @@ export const HomePage = () => {
                   {aboutDetailCards.map((card) => (
                     <div
                       key={card.title}
-                      className="rounded-2xl border border-line/70 bg-[#f8faf8] p-5 transition hover:border-brand/30 hover:bg-brand-soft/20"
+                      className="rounded-2xl border border-line/70 bg-[#f5f8fd] p-5 transition hover:border-brand/30 hover:bg-brand-soft/20"
                     >
                       <div className="flex items-start gap-4">
                         <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-soft">
@@ -472,6 +527,35 @@ export const HomePage = () => {
       )}
 
       {/* ════════════════════════════════════════════════════════════
+          SECTION 5.5 — Reviews
+      ════════════════════════════════════════════════════════════ */}
+      <section className="page-shell" id="reviews">
+        <Section eyebrow="Отзывы" title="Нам доверяют">
+          <div className="grid gap-4 md:grid-cols-3">
+            {REVIEWS.map((review) => (
+              <Card key={review.name} className="flex flex-col p-6" hover>
+                <div className="flex gap-0.5 text-sky" aria-label="Оценка 5 из 5">
+                  {Array.from({ length: 5 }).map((_, i) => (
+                    <span key={i} aria-hidden="true">★</span>
+                  ))}
+                </div>
+                <p className="mt-4 flex-1 text-sm leading-6 text-muted">«{review.text}»</p>
+                <div className="mt-5 flex items-center gap-3 border-t border-line/60 pt-4">
+                  <div className="flex h-10 w-10 items-center justify-center rounded-full bg-brand-soft font-semibold text-brand">
+                    {review.initial}
+                  </div>
+                  <div>
+                    <div className="text-sm font-semibold text-ink">{review.name}</div>
+                    <div className="text-xs text-muted">{review.role}</div>
+                  </div>
+                </div>
+              </Card>
+            ))}
+          </div>
+        </Section>
+      </section>
+
+      {/* ════════════════════════════════════════════════════════════
           SECTION 6 — FAQ
       ════════════════════════════════════════════════════════════ */}
       <section className="page-shell" id="faq">
@@ -518,7 +602,7 @@ export const HomePage = () => {
                     id={panelId}
                   >
                     <div className="overflow-hidden">
-                      <p className="border-t border-line/50 bg-[#f8faf8] px-6 py-5 text-sm leading-7 text-muted">
+                      <p className="border-t border-line/50 bg-[#f5f8fd] px-6 py-5 text-sm leading-7 text-muted">
                         {item.answer}
                       </p>
                     </div>

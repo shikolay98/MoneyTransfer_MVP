@@ -89,7 +89,7 @@ const RatesPanel = () => {
       {rates.map((r) => {
         const e = editing[r.id];
         return (
-          <div key={r.id} className="rounded-[20px] border border-line bg-[#f9fbfa] p-5">
+          <div key={r.id} className="rounded-[20px] border border-line bg-[#f5f8fd] p-5">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <div className="font-semibold text-ink text-lg">{r.pair}</div>
@@ -210,7 +210,7 @@ const ContentPanel = () => {
             {items.map((s) => {
               const e = editing[s.id];
               return (
-                <div key={s.id} className="rounded-[20px] border border-line bg-[#f9fbfa] p-5">
+                <div key={s.id} className="rounded-[20px] border border-line bg-[#f5f8fd] p-5">
                   <div className="flex items-start justify-between gap-4">
                     <div className="text-sm font-semibold text-ink">{s.key}</div>
                     {!e ? (
@@ -333,7 +333,7 @@ const FaqPanel = () => {
       </div>
 
       {isCreating && (
-        <div className="rounded-[20px] border-2 border-brand/20 bg-[#f0f7f4] p-5">
+        <div className="rounded-[20px] border-2 border-brand/20 bg-[#eff4ff] p-5">
           <div className="grid gap-3">
             <input aria-label="Вопрос" className="w-full rounded-[14px] border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand" placeholder="Вопрос" value={newItem.question} onChange={(e) => setNewItem((p) => ({ ...p, question: e.target.value }))} />
             <textarea aria-label="Ответ" className="w-full rounded-[14px] border border-line bg-white px-3 py-2 text-sm text-ink outline-none focus:border-brand" placeholder="Ответ" rows={3} value={newItem.answer} onChange={(e) => setNewItem((p) => ({ ...p, answer: e.target.value }))} />
@@ -348,7 +348,7 @@ const FaqPanel = () => {
       {items.map((item) => {
         const e = editing[item.id];
         return (
-          <div key={item.id} className="rounded-[20px] border border-line bg-[#f9fbfa] p-5">
+          <div key={item.id} className="rounded-[20px] border border-line bg-[#f5f8fd] p-5">
             <div className="flex items-start justify-between gap-4">
               {!e ? (
                 <div className="text-sm font-semibold text-ink">{item.question}</div>
@@ -413,7 +413,7 @@ const RequestsPanel = () => {
       <h2 className="text-xl font-semibold text-ink">Заявки ({requests.length})</h2>
       {requests.length === 0 && <div className="text-sm text-muted">Нет заявок</div>}
       {requests.map((r) => (
-        <div key={r.id} className="rounded-[20px] border border-line bg-[#f9fbfa] p-5">
+        <div key={r.id} className="rounded-[20px] border border-line bg-[#f5f8fd] p-5">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
@@ -468,7 +468,7 @@ const UsersPanel = () => {
     <div className="grid gap-4">
       <h2 className="text-xl font-semibold text-ink">Пользователи ({users.length})</h2>
       {users.map((u) => (
-        <div key={u.id} className="rounded-[20px] border border-line bg-[#f9fbfa] p-5">
+        <div key={u.id} className="rounded-[20px] border border-line bg-[#f5f8fd] p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
               <div className="font-semibold text-ink">
@@ -558,7 +558,7 @@ const ChatsPanel = () => {
           {threads.map((t) => (
             <button
               key={t.id}
-              className={`rounded-[16px] border p-3 text-left transition ${selectedId === t.id ? 'border-brand bg-brand/5' : 'border-line bg-[#f9fbfa] hover:border-brand/40'}`}
+              className={`rounded-[16px] border p-3 text-left transition ${selectedId === t.id ? 'border-brand bg-brand/5' : 'border-line bg-[#f5f8fd] hover:border-brand/40'}`}
               onClick={() => setSelectedId(t.id)}
               type="button"
             >
@@ -573,7 +573,7 @@ const ChatsPanel = () => {
       </div>
 
       {selectedId ? (
-        <div className="flex h-[520px] flex-col rounded-[20px] border border-line bg-[#f9fbfa]">
+        <div className="flex h-[520px] flex-col rounded-[20px] border border-line bg-[#f5f8fd]">
           <div className="border-b border-line/70 px-4 py-3">
             <div className="text-sm font-semibold text-ink">
               {threads.find((t) => t.id === selectedId)?.subject ?? 'Чат'}
@@ -621,7 +621,7 @@ const ChatsPanel = () => {
           </div>
         </div>
       ) : (
-        <div className="flex items-center justify-center rounded-[20px] border border-line bg-[#f9fbfa] text-sm text-muted">
+        <div className="flex items-center justify-center rounded-[20px] border border-line bg-[#f5f8fd] text-sm text-muted">
           Выберите чат слева
         </div>
       )}

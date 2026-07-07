@@ -11,8 +11,8 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 const toneClasses: Record<CardTone, string> = {
   default: 'border border-line/70 bg-white text-ink shadow-panel',
   soft: 'border border-brand/12 bg-brand-soft/50 text-ink',
-  dark: 'border border-white/8 bg-[#0f2724] text-white',
-  brand: 'border border-brand/20 bg-brand text-white shadow-[0_8px_24px_rgba(18,108,98,0.28)]',
+  dark: 'border border-white/8 bg-[#0b1730] text-white',
+  brand: 'border border-brand/20 bg-brand text-white shadow-[0_8px_24px_rgba(37,99,235,0.28)]',
 };
 
 export const Card = ({

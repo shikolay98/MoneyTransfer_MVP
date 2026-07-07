@@ -40,7 +40,7 @@ interface ExchangeFormProps {
 }
 
 const fieldCls =
-  'w-full rounded-2xl border border-line bg-[#f8faf8] px-4 py-3 text-sm text-ink outline-none transition-all duration-200 placeholder:text-muted/60 focus:border-brand focus:bg-white focus:ring-4 focus:ring-brand/10 focus:shadow-glow';
+  'w-full rounded-2xl border border-line bg-[#f5f8fd] px-4 py-3 text-sm text-ink outline-none transition-all duration-200 placeholder:text-muted/60 focus:border-brand focus:bg-white focus:ring-4 focus:ring-brand/10 focus:shadow-glow';
 
 const flagGlyph = (code?: string) => {
   if (code === 'UAH') return '🇺🇦';
@@ -201,7 +201,7 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
     <form id="exchange-form" onSubmit={handleSubmit((v) => void onSubmit(v))}>
       <Card className="overflow-hidden p-0 shadow-float">
         {/* Form header */}
-        <div className="bg-[#0f2724] px-6 py-4 text-white">
+        <div className="bg-[#0b1730] px-6 py-4 text-white">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-[10px] font-semibold uppercase tracking-[0.28em] text-white/50">
@@ -346,7 +346,7 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
 
           {/* Submit */}
           <button
-            className="w-full rounded-full bg-brand py-3.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(18,108,98,0.28)] transition-all hover:bg-brand-dark hover:shadow-[0_12px_28px_rgba(18,108,98,0.35)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-full bg-brand py-3.5 text-sm font-semibold text-white shadow-[0_8px_20px_rgba(37,99,235,0.28)] transition-all hover:bg-brand-dark hover:shadow-[0_12px_28px_rgba(37,99,235,0.35)] active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
             disabled={isSubmitting}
             type="submit"
           >

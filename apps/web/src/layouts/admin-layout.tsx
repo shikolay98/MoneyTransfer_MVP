@@ -28,7 +28,7 @@ export const AdminLayout = () => {
   return (
     <div className="page-shell py-8">
       <div className="section-card overflow-hidden border-ink/5">
-        <div className="border-b border-line/70 bg-[#16302d] px-6 py-5 text-white">
+        <div className="border-b border-line/70 bg-[#0b1730] px-6 py-5 text-white">
           <div className="flex flex-wrap items-center justify-between gap-4">
             <div>
               <p className="text-xs font-semibold uppercase tracking-[0.22em] text-white/70">

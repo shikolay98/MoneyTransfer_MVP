@@ -33,7 +33,18 @@
       "Bash(curl -s -X POST http://localhost:4000/api/auth/admin/login -H 'Content-Type: application/json' -H 'Origin: http://localhost:5173' -d '{\"email\":\"admin@local.test\",\"password\":\"ChangeMe123!\"}' -w '\\\\nHTTP %{http_code}\\\\n')",
       "Bash(curl -s 'http://localhost:4000/socket.io/?EIO=4&transport=polling')",
       "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Verification fixes: 429 error shape, client error message mapping, launch config *)",
-      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Fix review findings: docker CORS origin, chat fetch race guard, socket isActive re-check, lazy-route errorElement *)"
+      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Fix review findings: docker CORS origin, chat fetch race guard, socket isActive re-check, lazy-route errorElement *)",
+      "WebFetch(domain:obmen-77.ru)",
+      "Bash(xargs sed -i '' 's/#0f2724/#0b1730/g')",
+      "Bash(xargs sed -i '' 's/#16302d/#0b1730/g')",
+      "Bash(xargs sed -i '' 's/#183734/#0b1730/g')",
+      "Bash(xargs sed -i '' 's/#0d9488/#0ea5e9/g')",
+      "Bash(xargs sed -i '' 's/#f9fbfa/#f5f8fd/g')",
+      "Bash(xargs sed -i '' 's/#f8faf8/#f5f8fd/g')",
+      "Bash(xargs sed -i '' 's/#fbfcfb/#f7f9fc/g')",
+      "Bash(xargs sed -i '' 's/#f3f5f3/#f1f5fb/g')",
+      "Bash(xargs sed -i '' 's/#f0f7f4/#eff4ff/g')",
+      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'UI redesign to navy/blue fintech style + dev demo login *)"
     ]
   }
 }

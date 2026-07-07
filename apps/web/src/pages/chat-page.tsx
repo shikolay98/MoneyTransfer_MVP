@@ -73,7 +73,7 @@ export const ChatPage = () => {
       </div>
 
       <div className="flex h-[calc(100vh-280px)] min-h-[400px] flex-col rounded-[20px] border border-line bg-white overflow-hidden">
-        <div className="border-b border-line/70 px-5 py-3 bg-[#f9fbfa]">
+        <div className="border-b border-line/70 px-5 py-3 bg-[#f5f8fd]">
           <div className="text-sm font-semibold text-ink">Чат с менеджером</div>
           <div className="text-xs text-muted">Ответ обычно в течение 2-5 минут</div>
         </div>
@@ -103,7 +103,7 @@ export const ChatPage = () => {
 
               return (
                 <div key={m.id} className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
-                  <div className={`max-w-[75%] rounded-[16px] px-4 py-2.5 text-sm ${isMe ? 'bg-brand text-white' : 'bg-[#f3f5f3] border border-line text-ink'}`}>
+                  <div className={`max-w-[75%] rounded-[16px] px-4 py-2.5 text-sm ${isMe ? 'bg-brand text-white' : 'bg-[#f1f5fb] border border-line text-ink'}`}>
                     {!isMe && (
                       <div className="text-xs font-semibold mb-1 opacity-70">
                         {m.senderRole === 'ADMIN' ? 'Менеджер' : (m.sender?.firstName ?? 'Пользователь')}
@@ -121,7 +121,7 @@ export const ChatPage = () => {
           <div ref={bottomRef} />
         </div>
 
-        <div className="border-t border-line/70 p-3 bg-[#f9fbfa]">
+        <div className="border-t border-line/70 p-3 bg-[#f5f8fd]">
           <div className="flex gap-2">
             <input
               aria-label="Сообщение менеджеру"

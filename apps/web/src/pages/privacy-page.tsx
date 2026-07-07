@@ -10,7 +10,7 @@ export const PrivacyPage = () => {
   return (
     <div className="page-shell">
       <div className="section-card overflow-hidden">
-        <div className="border-b border-line/70 bg-[#183734] px-8 py-8 text-white sm:px-10">
+        <div className="border-b border-line/70 bg-[#0b1730] px-8 py-8 text-white sm:px-10">
           <p className="text-xs font-semibold uppercase tracking-[0.24em] text-white/65">
             Privacy
           </p>
