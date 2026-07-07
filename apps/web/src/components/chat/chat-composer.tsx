@@ -1,10 +1,18 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { uploadFile, type Attachment } from '../../lib/api';
 import { CloseIcon, FileIcon, PaperclipIcon } from '../ui/icons';
 
 const ACCEPT = 'image/png,image/jpeg,image/webp,image/gif,application/pdf';
 const MAX_FILES = 5;
+const MAX_TEXTAREA_HEIGHT = 140;
+
+// On touch devices Enter should insert a newline (send is a tap); on desktop
+// Enter sends and Shift+Enter inserts a newline — same as Telegram.
+const isTouchDevice = () =>
+  typeof window !== 'undefined' &&
+  typeof window.matchMedia === 'function' &&
+  window.matchMedia('(pointer: coarse)').matches;
 
 interface ChatComposerProps {
   onSend: (body: string, attachments: Attachment[]) => Promise<void>;
@@ -17,6 +25,15 @@ export const ChatComposer = ({ onSend, onError, placeholder }: ChatComposerProps
   const [files, setFiles] = useState<File[]>([]);
   const [isBusy, setIsBusy] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
+
+  // Auto-grow the textarea up to a max height, then scroll.
+  useEffect(() => {
+    const el = textareaRef.current;
+    if (!el) return;
+    el.style.height = 'auto';
+    el.style.height = `${Math.min(el.scrollHeight, MAX_TEXTAREA_HEIGHT)}px`;
+  }, [input]);
 
   const addFiles = (list: FileList | null) => {
     if (!list) return;
@@ -93,19 +110,22 @@ export const ChatComposer = ({ onSend, onError, placeholder }: ChatComposerProps
           <PaperclipIcon className="h-5 w-5" />
         </button>
 
-        <input
+        <textarea
           aria-label="Сообщение"
-          className="min-w-0 flex-1 rounded-[14px] border border-line bg-white px-4 py-2.5 text-sm text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
+          className="max-h-[140px] min-h-[2.75rem] min-w-0 flex-1 resize-none rounded-[18px] border border-line bg-white px-4 py-2.5 text-sm leading-relaxed text-ink outline-none transition focus:border-brand focus:ring-4 focus:ring-brand/10"
           disabled={isBusy}
           maxLength={4000}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === 'Enter' && !e.shiftKey) {
+            // Desktop: Enter sends, Shift+Enter = newline. Touch: Enter = newline.
+            if (e.key === 'Enter' && !e.shiftKey && !isTouchDevice()) {
               e.preventDefault();
               void handleSend();
             }
           }}
           placeholder={placeholder ?? 'Введите сообщение...'}
+          ref={textareaRef}
+          rows={1}
           value={input}
         />
         <button
