@@ -45,7 +45,9 @@ export const buildApp = async () => {
     max: 300,
     timeWindow: '1 minute',
     errorResponseBuilder: () => ({
-      error: 'Слишком много запросов. Попробуйте позже.',
+      statusCode: 429,
+      error: 'Too Many Requests',
+      message: 'Слишком много запросов. Попробуйте позже.',
     }),
   });
 

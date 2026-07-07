@@ -26,7 +26,13 @@
       "Bash(SEED_FORCE_CONTENT=true npx prisma db seed)",
       "Bash(docker info *)",
       "Bash(break)",
-      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Production refactor: security hardening, UX fixes, a11y/SEO, Docker deploy, tests *)"
+      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Production refactor: security hardening, UX fixes, a11y/SEO, Docker deploy, tests *)",
+      "Bash(curl -s http://localhost:4000/health)",
+      "Bash(curl -s http://localhost:4000/health/ready)",
+      "Bash(curl -s http://localhost:4000/api/public/bootstrap)",
+      "Bash(curl -s -X POST http://localhost:4000/api/auth/admin/login -H 'Content-Type: application/json' -H 'Origin: http://localhost:5173' -d '{\"email\":\"admin@local.test\",\"password\":\"ChangeMe123!\"}' -w '\\\\nHTTP %{http_code}\\\\n')",
+      "Bash(curl -s 'http://localhost:4000/socket.io/?EIO=4&transport=polling')",
+      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Verification fixes: 429 error shape, client error message mapping, launch config *)"
     ]
   }
 }
