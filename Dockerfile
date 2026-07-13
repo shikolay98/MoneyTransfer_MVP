@@ -3,7 +3,14 @@
 #
 #   docker build -t moneytransfer .
 #   docker run -p 4000:4000 --env-file .env moneytransfer
-FROM node:22-alpine AS builder
+#
+# Debian-slim base (not Alpine): Prisma's recommended, most reliable runtime.
+FROM node:22-slim AS builder
+
+# openssl + ca-certificates: required by Prisma and for TLS during engine download.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
 # Build-time frontend config. Leave VITE_API_URL empty for same-origin.
 ARG VITE_API_URL=""
@@ -24,11 +31,18 @@ COPY packages/config packages/config
 COPY apps/api apps/api
 COPY apps/web apps/web
 
-RUN npm run build --workspace @moneytransfer/web \
-  && npm run build --workspace @moneytransfer/api
+# Build in separate steps so memory is released between them and failures are
+# easy to pinpoint. The web build skips the type-check pass (already enforced
+# in CI) to keep peak memory low on constrained build hosts.
+RUN npm run build:docker --workspace @moneytransfer/web
+RUN npm run build --workspace @moneytransfer/api
 
 # ── Runtime ──────────────────────────────────────────────────────────────────
-FROM node:22-alpine AS runtime
+FROM node:22-slim AS runtime
+
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends openssl ca-certificates \
+  && rm -rf /var/lib/apt/lists/*
 
 ENV NODE_ENV=production
 # The API serves the SPA from this directory.
