@@ -4,10 +4,18 @@ import type { PublicBootstrap } from '../types/public';
 const API_URL = (import.meta.env.VITE_API_URL as string | undefined) ?? '';
 
 const request = async <T>(path: string, init?: RequestInit): Promise<T> => {
+  // Only send a JSON content-type when there is actually a body — Fastify
+  // rejects an empty body with content-type: application/json (400), which
+  // otherwise breaks bodyless POSTs like logout.
+  const headers: Record<string, string> = { ...(init?.headers as Record<string, string>) };
+  if (init?.body !== undefined && init?.body !== null) {
+    headers['Content-Type'] = headers['Content-Type'] ?? 'application/json';
+  }
+
   const res = await fetch(`${API_URL}${path}`, {
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json', ...init?.headers },
     ...init,
+    headers,
   });
 
   if (!res.ok) {

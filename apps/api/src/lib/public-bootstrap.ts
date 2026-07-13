@@ -1,6 +1,15 @@
 import type { PrismaClient } from '@prisma/client';
 
+import { env } from '../config/env.js';
+
 type PublicPage = 'HOME' | 'PRIVACY' | 'TERMS';
+
+// Exposed to the SPA at runtime so the Telegram bot username never has to be
+// baked in at build time (avoids build-arg pitfalls on PaaS hosts).
+const telegramBotUsername = (() => {
+  const raw = env.TELEGRAM_BOT_USERNAME.trim().replace(/^@/, '');
+  return raw && raw !== 'replace_with_bot_username' ? raw : null;
+})();
 
 const loadPageSections = async (prisma: PrismaClient, page: PublicPage) => {
   const sections = await prisma.contentSection.findMany({
@@ -60,6 +69,9 @@ export const getPublicBootstrap = async (prisma: PrismaClient) => {
   );
 
   return {
+    config: {
+      telegramBotUsername,
+    },
     pages: {
       home: homeSections,
       privacy: privacySections,

@@ -7,7 +7,6 @@ import { useBootstrap } from '../lib/bootstrap-context';
 import { useToast } from '../lib/toast-context';
 import { CloseIcon, MenuIcon, TelegramIcon } from '../components/ui/icons';
 
-const BOT_USERNAME = import.meta.env.VITE_TELEGRAM_BOT_USERNAME as string | undefined;
 const IS_DEV = import.meta.env.DEV;
 const HEADER_SCROLL_DELTA = 40;
 
@@ -29,17 +28,23 @@ const readFooterMeta = (metadata: unknown) => {
   };
 };
 
-const TelegramLoginWidget = ({ onAuth }: { onAuth: (data: Record<string, unknown>) => void }) => {
+const TelegramLoginWidget = ({
+  botUsername,
+  onAuth,
+}: {
+  botUsername: string;
+  onAuth: (data: Record<string, unknown>) => void;
+}) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!containerRef.current || !BOT_USERNAME) return;
+    if (!containerRef.current || !botUsername) return;
 
     (window as unknown as Record<string, unknown>)['onTelegramAuth'] = onAuth;
 
     const script = document.createElement('script');
     script.src = 'https://telegram.org/js/telegram-widget.js?22';
-    script.setAttribute('data-telegram-login', BOT_USERNAME);
+    script.setAttribute('data-telegram-login', botUsername);
     script.setAttribute('data-size', 'medium');
     script.setAttribute('data-onauth', 'onTelegramAuth(user)');
     script.setAttribute('data-request-access', 'write');
@@ -51,7 +56,7 @@ const TelegramLoginWidget = ({ onAuth }: { onAuth: (data: Record<string, unknown
     return () => {
       delete (window as unknown as Record<string, unknown>)['onTelegramAuth'];
     };
-  }, [onAuth]);
+  }, [botUsername, onAuth]);
 
   return <div ref={containerRef} />;
 };
@@ -70,7 +75,9 @@ export const PublicLayout = () => {
 
   const rates = data?.rates.slice(0, 2) ?? [];
   const isAuthed = !!user;
-  const isBotConfigured = BOT_USERNAME && BOT_USERNAME !== 'replace_with_bot_username';
+  // Bot username comes from the server at runtime (no build-time bake needed).
+  const botUsername = data?.config.telegramBotUsername ?? null;
+  const isBotConfigured = !!botUsername;
   const footerSection = data?.pages.home.find((s) => s.key === 'footer');
   const footerMeta = readFooterMeta(footerSection?.metadata);
   const supportTelegram = footerMeta.supportTelegram ?? '@moneytransfer_support';
@@ -261,9 +268,9 @@ export const PublicLayout = () => {
                       Выйти
                     </button>
                   </>
-                ) : showTgWidget && isBotConfigured ? (
+                ) : showTgWidget && botUsername ? (
                   <div className="flex items-center gap-2">
-                    <TelegramLoginWidget onAuth={onTelegramAuth} />
+                    <TelegramLoginWidget botUsername={botUsername} onAuth={onTelegramAuth} />
                     <button
                       aria-label="Скрыть виджет входа"
                       className="text-xs text-muted hover:text-ink"

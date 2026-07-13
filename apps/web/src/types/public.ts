@@ -31,6 +31,9 @@ export interface DictionaryOption {
 }
 
 export interface PublicBootstrap {
+  config: {
+    telegramBotUsername: string | null;
+  };
   pages: {
     home: ContentSection[];
     privacy: ContentSection[];

@@ -56,7 +56,26 @@
       "Bash(docker build *)",
       "Bash(docker rm *)",
       "Bash(docker rmi *)",
-      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Multi-line chat input + one-service Render deploy \\(same-origin\\) *)"
+      "Bash(git -c user.name=Claude -c user.email=noreply@anthropic.com commit -q -m 'Multi-line chat input + one-service Render deploy \\(same-origin\\) *)",
+      "Bash(grep -E '\\(^|/\\)\\\\.env$')",
+      "Bash(git remote *)",
+      "Bash(brew install *)",
+      "Bash(gh auth *)",
+      "Bash(GH_PROMPT_DISABLED= gh auth login --hostname github.com --git-protocol https --web)",
+      "Bash(tee /tmp/gh_auth_out.txt)",
+      "Read(//tmp/**)",
+      "Bash(pkill -f 'gh auth login')",
+      "Bash(git push *)",
+      "Bash(git -c user.name=shikolay98 -c user.email=isdevw@gmail.com commit -q -m 'Use unique Render service name for predictable URL *)",
+      "Bash(curl -s -m 60 -o /dev/null -w 'HTTP %{http_code}\\\\n' https://moneytransfer-shikolay98.onrender.com/health)",
+      "Bash(curl -s -m 60 -o /dev/null -w 'HTTP %{http_code}\\\\n' https://moneytransfer-shikolay98.onrender.com/)",
+      "Bash(curl -s -m 60 https://moneytransfer-shikolay98.onrender.com/health)",
+      "Bash(git -c user.name=shikolay98 -c user.email=isdevw@gmail.com commit -q -m 'Fix Render build: Debian base \\(Prisma-friendly\\), split build steps, lighter web build *)",
+      "Bash(curl -s -m 20 -o /dev/null -w 'HTTP %{http_code}\\\\n' https://moneytransfer-shikolay98.onrender.com/health)",
+      "Bash(git -c user.name=shikolay98 -c user.email=isdevw@gmail.com commit -q -m 'Fix Render build: provide placeholder DATABASE_URL for prisma generate; exclude nested .env *)",
+      "Bash(curl -s -m 20 -o /dev/null -w 'health → HTTP %{http_code}\\\\n' https://moneytransfer-shikolay98.onrender.com/health)",
+      "Bash(curl -s -m 25 https://moneytransfer-shikolay98.onrender.com/api/public/bootstrap)",
+      "Bash(git -c user.name=shikolay98 -c user.email=isdevw@gmail.com commit -q -m 'Fix Telegram login + logout on deploy *)"
     ]
   }
 }
