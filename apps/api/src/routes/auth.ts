@@ -44,6 +44,55 @@ const strictRateLimit = (max: number) => ({
 // Compared against when the user is unknown so response timing stays constant.
 const DUMMY_PASSWORD_HASH = bcrypt.hashSync('timing-equalizer-placeholder', 10);
 
+type TelegramUpsertResult =
+  | { ok: true; user: { id: string; role: 'USER' | 'ADMIN'; firstName: string | null; telegramUsername: string | null; photoUrl: string | null } }
+  | { ok: false; reason: 'inactive' };
+
+// Shared by the POST (widget callback / dev demo) and GET (redirect) flows.
+const upsertTelegramUser = async (
+  app: Parameters<FastifyPluginAsync>[0],
+  authData: TelegramAuthData,
+): Promise<TelegramUpsertResult> => {
+  const telegramId = String(authData.id);
+  const existing = await app.prisma.user.findUnique({ where: { telegramId } });
+
+  if (existing && !existing.isActive) {
+    return { ok: false, reason: 'inactive' };
+  }
+
+  const user = existing
+    ? await app.prisma.user.update({
+        where: { telegramId },
+        data: {
+          telegramUsername: authData.username ?? existing.telegramUsername,
+          firstName: authData.first_name,
+          lastName: authData.last_name ?? existing.lastName,
+          photoUrl: authData.photo_url ?? existing.photoUrl,
+        },
+      })
+    : await app.prisma.user.create({
+        data: {
+          telegramId,
+          telegramUsername: authData.username ?? null,
+          firstName: authData.first_name,
+          lastName: authData.last_name ?? null,
+          photoUrl: authData.photo_url ?? null,
+          role: 'USER',
+        },
+      });
+
+  return {
+    ok: true,
+    user: {
+      id: user.id,
+      role: user.role,
+      firstName: user.firstName,
+      telegramUsername: user.telegramUsername,
+      photoUrl: user.photoUrl,
+    },
+  };
+};
+
 const authRoutes: FastifyPluginAsync = async (app) => {
   app.post(
     '/api/auth/admin/login',
@@ -112,45 +161,64 @@ const authRoutes: FastifyPluginAsync = async (app) => {
         return reply.status(401).send({ error: 'Неверная подпись Telegram' });
       }
 
-      const telegramId = String(authData.id);
-
-      const existing = await app.prisma.user.findUnique({ where: { telegramId } });
-
-      if (existing && !existing.isActive) {
+      const result = await upsertTelegramUser(app, authData);
+      if (!result.ok) {
         return reply.status(403).send({ error: 'Аккаунт деактивирован' });
       }
 
-      const user = existing
-        ? await app.prisma.user.update({
-            where: { telegramId },
-            data: {
-              telegramUsername: authData.username ?? existing.telegramUsername,
-              firstName: authData.first_name,
-              lastName: authData.last_name ?? existing.lastName,
-              photoUrl: authData.photo_url ?? existing.photoUrl,
-            },
-          })
-        : await app.prisma.user.create({
-            data: {
-              telegramId,
-              telegramUsername: authData.username ?? null,
-              firstName: authData.first_name,
-              lastName: authData.last_name ?? null,
-              photoUrl: authData.photo_url ?? null,
-              role: 'USER',
-            },
-          });
-
-      const token = app.jwt.sign({ userId: user.id, role: user.role });
+      const token = app.jwt.sign({ userId: result.user.id, role: result.user.role });
       setAuthCookie(reply, token);
 
-      return {
-        id: user.id,
-        role: user.role,
-        firstName: user.firstName,
-        telegramUsername: user.telegramUsername,
-        photoUrl: user.photoUrl,
-      };
+      return result.user;
+    },
+  );
+
+  // Redirect-based Telegram login (data-auth-url). More reliable than the JS
+  // onauth callback: Telegram redirects here with the signed params, we set the
+  // session cookie and send the user to their dashboard. No popups/callbacks.
+  app.get(
+    '/api/auth/telegram/callback',
+    { config: strictRateLimit(20) },
+    async (request, reply) => {
+      const q = (request.query ?? {}) as Record<string, string | undefined>;
+
+      const fail = (reason: string) =>
+        reply.redirect(`/?tg_error=${encodeURIComponent(reason)}`);
+
+      if (!q.hash || !q.id || !q.auth_date || !q.first_name) {
+        return fail('invalid');
+      }
+
+      // Reconstruct only the fields Telegram actually sent (undefined keys must
+      // not enter the HMAC check string).
+      const authData = { hash: q.hash } as Record<string, string> & TelegramAuthData;
+      for (const key of [
+        'auth_date',
+        'first_name',
+        'id',
+        'last_name',
+        'photo_url',
+        'username',
+      ] as const) {
+        const value = q[key];
+        if (value !== undefined) {
+          (authData as Record<string, string>)[key] = value;
+        }
+      }
+
+      if (!verifyTelegramAuth(authData, env.TELEGRAM_BOT_TOKEN)) {
+        return fail('signature');
+      }
+
+      const result = await upsertTelegramUser(app, authData);
+      if (!result.ok) {
+        return fail('inactive');
+      }
+
+      const token = app.jwt.sign({ userId: result.user.id, role: result.user.role });
+      setAuthCookie(reply, token);
+
+      return reply.redirect('/dashboard');
     },
   );
 

@@ -91,12 +91,17 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
     },
   });
 
-  // If the user logs in after the form was rendered, prefill the empty contact.
+  // When the user is logged in via Telegram we already know their handle, so
+  // the contact field is hidden and filled automatically.
+  const knownContact = user?.telegramUsername ? `@${user.telegramUsername}` : null;
+  const hideContact = !!knownContact;
+
+  // Keep the contact value in sync with the logged-in user's handle.
   useEffect(() => {
-    if (user?.telegramUsername && !getValues('contact')) {
-      setValue('contact', `@${user.telegramUsername}`);
+    if (knownContact && getValues('contact') !== knownContact) {
+      setValue('contact', knownContact);
     }
-  }, [user, getValues, setValue]);
+  }, [knownContact, getValues, setValue]);
 
   const sendCurrencyId = watch('sendCurrencyId');
   const receiveCurrencyId = watch('receiveCurrencyId');
@@ -328,21 +333,34 @@ export const ExchangeForm = ({ currencies, banks, rates }: ExchangeFormProps) =>
             </div>
           )}
 
-          {/* Contact / Telegram */}
-          <Field
-            error={errors.contact?.message}
-            hint="Telegram для связи с менеджером"
-            icon={<ShieldIcon />}
-            label="Telegram"
-          >
-            <input
-              autoComplete="username"
-              className={fieldCls}
-              placeholder="@username"
-              type="text"
-              {...register('contact')}
-            />
-          </Field>
+          {/* Contact / Telegram — hidden for logged-in users (we know them). */}
+          {hideContact ? (
+            <>
+              <input type="hidden" {...register('contact')} />
+              <div className="flex items-center gap-2 rounded-2xl border border-brand/20 bg-brand-soft/50 px-4 py-3 text-sm text-ink">
+                <ShieldIcon className="h-4 w-4 shrink-0 text-brand" />
+                <span>
+                  Заявка привяжется к вашему аккаунту{' '}
+                  <span className="font-semibold text-brand">{knownContact}</span>
+                </span>
+              </div>
+            </>
+          ) : (
+            <Field
+              error={errors.contact?.message}
+              hint="Telegram для связи с менеджером"
+              icon={<ShieldIcon />}
+              label="Telegram"
+            >
+              <input
+                autoComplete="username"
+                className={fieldCls}
+                placeholder="@username"
+                type="text"
+                {...register('contact')}
+              />
+            </Field>
+          )}
 
           {/* Submit */}
           <button

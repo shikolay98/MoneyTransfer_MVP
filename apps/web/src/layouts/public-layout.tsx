@@ -28,35 +28,30 @@ const readFooterMeta = (metadata: unknown) => {
   };
 };
 
-const TelegramLoginWidget = ({
-  botUsername,
-  onAuth,
-}: {
-  botUsername: string;
-  onAuth: (data: Record<string, unknown>) => void;
-}) => {
+// Same-origin in production ('' → current origin); explicit API origin in dev.
+const API_ORIGIN = (import.meta.env.VITE_API_URL as string | undefined) || '';
+const telegramAuthUrl = () => `${API_ORIGIN || window.location.origin}/api/auth/telegram/callback`;
+
+// Redirect-based Telegram login: on success Telegram navigates the browser to
+// our /api/auth/telegram/callback, which sets the cookie and redirects to the
+// dashboard. Reliable across browsers (no popups, no JS callback).
+const TelegramLoginWidget = ({ botUsername }: { botUsername: string }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!containerRef.current || !botUsername) return;
 
-    (window as unknown as Record<string, unknown>)['onTelegramAuth'] = onAuth;
-
     const script = document.createElement('script');
     script.src = 'https://telegram.org/js/telegram-widget.js?22';
     script.setAttribute('data-telegram-login', botUsername);
     script.setAttribute('data-size', 'medium');
-    script.setAttribute('data-onauth', 'onTelegramAuth(user)');
+    script.setAttribute('data-auth-url', telegramAuthUrl());
     script.setAttribute('data-request-access', 'write');
     script.async = true;
 
     containerRef.current.innerHTML = '';
     containerRef.current.appendChild(script);
-
-    return () => {
-      delete (window as unknown as Record<string, unknown>)['onTelegramAuth'];
-    };
-  }, [botUsername, onAuth]);
+  }, [botUsername]);
 
   return <div ref={containerRef} />;
 };
@@ -125,6 +120,15 @@ export const PublicLayout = () => {
     return () => window.removeEventListener('keydown', onKeyDown);
   }, [isMobileMenuOpen]);
 
+  // Surface a failed Telegram redirect login (?tg_error=...) as a toast.
+  useEffect(() => {
+    const params = new URLSearchParams(location.search);
+    if (params.get('tg_error')) {
+      addToast('Не удалось войти через Telegram. Попробуйте ещё раз.', 'error');
+      window.history.replaceState({}, '', location.pathname);
+    }
+  }, [location.search, location.pathname, addToast]);
+
   const handleNavClick = (href: string) => {
     setIsMobileMenuOpen(false);
     if (location.pathname !== '/') {
@@ -149,11 +153,6 @@ export const PublicLayout = () => {
       }
     },
     [addToast, navigate, refresh],
-  );
-
-  const onTelegramAuth = useCallback(
-    (d: Record<string, unknown>) => void handleTelegramAuth(d),
-    [handleTelegramAuth],
   );
 
   // Dev-only demo login: the real Telegram widget needs a live bot + domain
@@ -270,7 +269,7 @@ export const PublicLayout = () => {
                   </>
                 ) : showTgWidget && botUsername ? (
                   <div className="flex items-center gap-2">
-                    <TelegramLoginWidget botUsername={botUsername} onAuth={onTelegramAuth} />
+                    <TelegramLoginWidget botUsername={botUsername} />
                     <button
                       aria-label="Скрыть виджет входа"
                       className="text-xs text-muted hover:text-ink"

@@ -75,7 +75,9 @@
       "Bash(git -c user.name=shikolay98 -c user.email=isdevw@gmail.com commit -q -m 'Fix Render build: provide placeholder DATABASE_URL for prisma generate; exclude nested .env *)",
       "Bash(curl -s -m 20 -o /dev/null -w 'health → HTTP %{http_code}\\\\n' https://moneytransfer-shikolay98.onrender.com/health)",
       "Bash(curl -s -m 25 https://moneytransfer-shikolay98.onrender.com/api/public/bootstrap)",
-      "Bash(git -c user.name=shikolay98 -c user.email=isdevw@gmail.com commit -q -m 'Fix Telegram login + logout on deploy *)"
+      "Bash(git -c user.name=shikolay98 -c user.email=isdevw@gmail.com commit -q -m 'Fix Telegram login + logout on deploy *)",
+      "Bash(pkill -f 'tsx src/server.ts')",
+      "Bash(git -c user.name=shikolay98 -c user.email=isdevw@gmail.com commit -q -m 'Reliable Telegram login via redirect \\(data-auth-url\\) + hide contact field when logged in *)"
     ]
   }
 }
