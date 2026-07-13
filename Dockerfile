@@ -18,6 +18,11 @@ ARG VITE_TELEGRAM_BOT_USERNAME="replace_with_bot_username"
 ENV VITE_API_URL=$VITE_API_URL
 ENV VITE_TELEGRAM_BOT_USERNAME=$VITE_TELEGRAM_BOT_USERNAME
 
+# prisma.config.ts requires DATABASE_URL just to load; `prisma generate` never
+# connects, so a placeholder is enough at build time. The real DATABASE_URL is
+# injected at runtime (Render / docker run).
+ENV DATABASE_URL="postgresql://placeholder:placeholder@localhost:5432/placeholder?schema=public"
+
 WORKDIR /app
 
 COPY package.json package-lock.json ./

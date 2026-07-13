@@ -2,9 +2,13 @@ node_modules
 **/node_modules
 **/dist
 .git
+# Exclude env files at any depth so real secrets never get baked into images.
 .env
 .env.*
+**/.env
+**/.env.*
 !.env.example
+!**/.env.example
 **/*.log
 coverage
 .vite
