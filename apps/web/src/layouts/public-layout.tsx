@@ -4,6 +4,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { telegramLogin } from '../lib/api';
 import { useAuth } from '../lib/auth-context';
 import { useBootstrap } from '../lib/bootstrap-context';
+import { startTelegramLogin } from '../lib/telegram-login';
 import { useToast } from '../lib/toast-context';
 import { CloseIcon, MenuIcon, TelegramIcon } from '../components/ui/icons';
 
@@ -28,34 +29,6 @@ const readFooterMeta = (metadata: unknown) => {
   };
 };
 
-// Same-origin in production ('' → current origin); explicit API origin in dev.
-const API_ORIGIN = (import.meta.env.VITE_API_URL as string | undefined) || '';
-const telegramAuthUrl = () => `${API_ORIGIN || window.location.origin}/api/auth/telegram/callback`;
-
-// Redirect-based Telegram login: on success Telegram navigates the browser to
-// our /api/auth/telegram/callback, which sets the cookie and redirects to the
-// dashboard. Reliable across browsers (no popups, no JS callback).
-const TelegramLoginWidget = ({ botUsername }: { botUsername: string }) => {
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!containerRef.current || !botUsername) return;
-
-    const script = document.createElement('script');
-    script.src = 'https://telegram.org/js/telegram-widget.js?22';
-    script.setAttribute('data-telegram-login', botUsername);
-    script.setAttribute('data-size', 'medium');
-    script.setAttribute('data-auth-url', telegramAuthUrl());
-    script.setAttribute('data-request-access', 'write');
-    script.async = true;
-
-    containerRef.current.innerHTML = '';
-    containerRef.current.appendChild(script);
-  }, [botUsername]);
-
-  return <div ref={containerRef} />;
-};
-
 export const PublicLayout = () => {
   const location = useLocation();
   const navigate = useNavigate();
@@ -63,16 +36,15 @@ export const PublicLayout = () => {
   const { user, logout, refresh } = useAuth();
   const { addToast } = useToast();
   const [isHeaderHidden, setIsHeaderHidden] = useState(false);
-  const [showTgWidget, setShowTgWidget] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const lastScrollYRef = useRef(0);
   const lastTogglePointRef = useRef(0);
 
   const rates = data?.rates.slice(0, 2) ?? [];
   const isAuthed = !!user;
-  // Bot username comes from the server at runtime (no build-time bake needed).
-  const botUsername = data?.config.telegramBotUsername ?? null;
-  const isBotConfigured = !!botUsername;
+  // Bot id comes from the server at runtime (no build-time bake needed).
+  const botId = data?.config.telegramBotId ?? null;
+  const isBotConfigured = !!botId;
   const footerSection = data?.pages.home.find((s) => s.key === 'footer');
   const footerMeta = readFooterMeta(footerSection?.metadata);
   const supportTelegram = footerMeta.supportTelegram ?? '@moneytransfer_support';
@@ -140,9 +112,15 @@ export const PublicLayout = () => {
     document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Single-button login: full-page redirect to Telegram OAuth (no widget iframe,
+  // no popup). Telegram returns to /login/telegram which finishes the login.
+  const handleTelegramLogin = useCallback(() => {
+    setIsMobileMenuOpen(false);
+    if (botId) startTelegramLogin(botId);
+  }, [botId]);
+
   const handleTelegramAuth = useCallback(
     async (tgData: Record<string, unknown>) => {
-      setShowTgWidget(false);
       try {
         await telegramLogin(tgData);
         await refresh();
@@ -155,10 +133,9 @@ export const PublicLayout = () => {
     [addToast, navigate, refresh],
   );
 
-  // Dev-only demo login: the real Telegram widget needs a live bot + domain
-  // binding, so locally we log in with a mock identity. The dev API skips
-  // signature verification only when the bot token is still a placeholder;
-  // in production this button never renders and the payload would be rejected.
+  // Dev-only demo login: locally there is no live bot, so we log in with a mock
+  // identity. The dev API skips signature verification only when the bot token
+  // is still a placeholder; in production this button never renders.
   const handleDemoLogin = useCallback(() => {
     setIsMobileMenuOpen(false);
     void handleTelegramAuth({
@@ -267,22 +244,10 @@ export const PublicLayout = () => {
                       Выйти
                     </button>
                   </>
-                ) : showTgWidget && botUsername ? (
-                  <div className="flex items-center gap-2">
-                    <TelegramLoginWidget botUsername={botUsername} />
-                    <button
-                      aria-label="Скрыть виджет входа"
-                      className="text-xs text-muted hover:text-ink"
-                      onClick={() => setShowTgWidget(false)}
-                      type="button"
-                    >
-                      ×
-                    </button>
-                  </div>
                 ) : isBotConfigured ? (
                   <button
                     className="inline-flex items-center gap-2 rounded-full bg-brand px-4 py-1.5 text-sm font-semibold text-white transition hover:bg-brand-dark active:scale-95"
-                    onClick={() => setShowTgWidget(true)}
+                    onClick={handleTelegramLogin}
                     type="button"
                   >
                     <TelegramIcon className="h-4 w-4" />
@@ -351,7 +316,7 @@ export const PublicLayout = () => {
                   ) : isBotConfigured ? (
                     <button
                       className="flex w-full items-center justify-center gap-2 rounded-full bg-brand px-4 py-2.5 text-sm font-semibold text-white"
-                      onClick={() => { setIsMobileMenuOpen(false); setShowTgWidget(true); }}
+                      onClick={handleTelegramLogin}
                       type="button"
                     >
                       <TelegramIcon className="h-4 w-4" />

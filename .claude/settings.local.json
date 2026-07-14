@@ -77,7 +77,10 @@
       "Bash(curl -s -m 25 https://moneytransfer-shikolay98.onrender.com/api/public/bootstrap)",
       "Bash(git -c user.name=shikolay98 -c user.email=isdevw@gmail.com commit -q -m 'Fix Telegram login + logout on deploy *)",
       "Bash(pkill -f 'tsx src/server.ts')",
-      "Bash(git -c user.name=shikolay98 -c user.email=isdevw@gmail.com commit -q -m 'Reliable Telegram login via redirect \\(data-auth-url\\) + hide contact field when logged in *)"
+      "Bash(git -c user.name=shikolay98 -c user.email=isdevw@gmail.com commit -q -m 'Reliable Telegram login via redirect \\(data-auth-url\\) + hide contact field when logged in *)",
+      "Bash(curl -s -m 25 'https://telegram.org/js/telegram-widget.js?22')",
+      "Bash(grep -vE 'npm notice|^$')",
+      "Bash(git -c user.name=shikolay98 -c user.email=isdevw@gmail.com commit -q -m 'Single-button Telegram login via full-page OAuth redirect \\(no widget/popup\\) *)"
     ]
   }
 }

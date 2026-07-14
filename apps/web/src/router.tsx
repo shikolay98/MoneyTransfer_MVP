@@ -25,6 +25,13 @@ export const router = createBrowserRouter([
         ],
       },
       {
+        path: '/login/telegram',
+        lazy: () =>
+          import('./pages/telegram-callback-page').then((m) => ({
+            Component: m.TelegramCallbackPage,
+          })),
+      },
+      {
         path: '/dashboard',
         element: <DashboardLayout />,
         children: [

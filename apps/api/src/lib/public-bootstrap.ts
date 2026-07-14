@@ -11,6 +11,14 @@ const telegramBotUsername = (() => {
   return raw && raw !== 'replace_with_bot_username' ? raw : null;
 })();
 
+// Numeric bot id (the part before ':' in the token). This is public — it is
+// embedded in the Telegram Login Widget too — and lets the SPA start the
+// full-page OAuth redirect without any secrets.
+const telegramBotId = (() => {
+  const id = env.TELEGRAM_BOT_TOKEN.split(':')[0]?.trim();
+  return telegramBotUsername && id && /^\d+$/.test(id) ? id : null;
+})();
+
 const loadPageSections = async (prisma: PrismaClient, page: PublicPage) => {
   const sections = await prisma.contentSection.findMany({
     where: {
@@ -71,6 +79,7 @@ export const getPublicBootstrap = async (prisma: PrismaClient) => {
   return {
     config: {
       telegramBotUsername,
+      telegramBotId,
     },
     pages: {
       home: homeSections,

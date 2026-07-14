@@ -33,6 +33,7 @@ export interface DictionaryOption {
 export interface PublicBootstrap {
   config: {
     telegramBotUsername: string | null;
+    telegramBotId: string | null;
   };
   pages: {
     home: ContentSection[];

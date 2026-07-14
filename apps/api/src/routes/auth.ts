@@ -19,7 +19,7 @@ const telegramAuthSchema = z.object({
   first_name: z.string().max(200),
   last_name: z.string().max(200).optional(),
   username: z.string().max(200).optional(),
-  photo_url: z.string().url().max(500).optional(),
+  photo_url: z.string().max(500).optional(),
   auth_date: z.number().int().positive(),
   hash: z.string().max(200),
 });
