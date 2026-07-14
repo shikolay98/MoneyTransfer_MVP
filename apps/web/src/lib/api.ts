@@ -58,6 +58,9 @@ export const telegramLogin = (data: Record<string, unknown>) =>
 export const logout = () =>
   request<{ ok: boolean }>('/api/auth/logout', { method: 'POST' });
 
+export const deleteAccount = () =>
+  request<{ ok: boolean }>('/api/auth/me', { method: 'DELETE' });
+
 // ── Exchange Requests ────────────────────────────────────────────────────────
 export type ExchangeRequestPayload = {
   sendCurrencyId: string;
@@ -98,6 +101,7 @@ export type ChatThread = {
   lastMessage: string | null;
   lastMessageAt: string | null;
   exchangeRequest: { id: string; status: string } | null;
+  unreadCount: number;
 };
 
 export type Attachment = {
@@ -161,6 +165,13 @@ export const createChatThread = (subject?: string) =>
     method: 'POST',
     body: JSON.stringify({ subject }),
   });
+
+// Delete "for me" (thread stays for the admin).
+export const deleteMyChatThread = (threadId: string) =>
+  request<{ ok: boolean }>(`/api/chats/${threadId}`, { method: 'DELETE' });
+
+export const deleteMyMessage = (threadId: string, messageId: string) =>
+  request<{ ok: boolean }>(`/api/chats/${threadId}/messages/${messageId}`, { method: 'DELETE' });
 
 // ── Admin ─────────────────────────────────────────────────────────────────────
 export type AdminRate = {
@@ -230,6 +241,7 @@ export type AdminChatThread = {
   lastMessage: string | null;
   lastMessageAt: string | null;
   exchangeRequest: { id: string; status: string } | null;
+  unreadCount: number;
 };
 
 export const adminFetchRates = () => request<AdminRate[]>('/api/admin/rates');
@@ -249,6 +261,11 @@ export const adminDeleteFaq = (id: string) =>
   request<{ ok: boolean }>(`/api/admin/faq/${id}`, { method: 'DELETE' });
 
 export const adminFetchUsers = () => request<AdminUser[]>('/api/admin/users');
+export const adminBlockUser = (id: string, isActive: boolean) =>
+  request<{ id: string; isActive: boolean }>(`/api/admin/users/${id}/block`, {
+    method: 'PATCH',
+    body: JSON.stringify({ isActive }),
+  });
 
 export const adminFetchRequests = (status?: string) =>
   request<AdminRequest[]>(`/api/admin/requests${status ? `?status=${status}` : ''}`);
@@ -265,4 +282,12 @@ export const adminSendMessage = (threadId: string, body: string, attachments: At
   request<ChatMessage>(`/api/admin/chats/${threadId}/messages`, {
     method: 'POST',
     body: JSON.stringify({ body, attachments }),
+  });
+
+// Admin deletes for everyone.
+export const adminDeleteThread = (threadId: string) =>
+  request<{ ok: boolean }>(`/api/admin/chats/${threadId}`, { method: 'DELETE' });
+export const adminDeleteMessage = (threadId: string, messageId: string) =>
+  request<{ ok: boolean }>(`/api/admin/chats/${threadId}/messages/${messageId}`, {
+    method: 'DELETE',
   });

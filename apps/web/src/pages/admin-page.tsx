@@ -2,10 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 
 import { AttachmentView } from '../components/chat/attachment-view';
 import { ChatComposer } from '../components/chat/chat-composer';
+import { useConfirm } from '../lib/confirm-context';
+import { connectSocket } from '../lib/socket';
 import { usePageTitle } from '../lib/use-page-title';
 import { appendUnique, useThreadSocket } from '../lib/use-thread-socket';
 import {
+  adminBlockUser,
   adminDeleteFaq,
+  adminDeleteMessage,
+  adminDeleteThread,
   adminFetchChats,
   adminFetchContent,
   adminFetchFaq,
@@ -387,7 +392,7 @@ const FaqPanel = () => {
 };
 
 // ── Requests Panel ────────────────────────────────────────────────────────────
-const RequestsPanel = () => {
+const RequestsPanel = ({ onOpenChat }: { onOpenChat: (threadId: string) => void }) => {
   const { addToast } = useToast();
   const [requests, setRequests] = useState<AdminRequest[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -436,15 +441,26 @@ const RequestsPanel = () => {
               </div>
               <div className="text-xs text-muted">{new Date(r.createdAt).toLocaleString('ru')}</div>
             </div>
-            <select
-              className="rounded-[14px] border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink outline-none"
-              onChange={(e) => void updateStatus(r.id, e.target.value)}
-              value={r.status}
-            >
-              {Object.entries(STATUS_LABELS).map(([val, label]) => (
-                <option key={val} value={val}>{label}</option>
-              ))}
-            </select>
+            <div className="flex items-center gap-2">
+              {r.chatThreadId && (
+                <button
+                  className="rounded-full border border-brand px-3 py-1.5 text-xs font-semibold text-brand transition hover:bg-brand hover:text-white"
+                  onClick={() => onOpenChat(r.chatThreadId!)}
+                  type="button"
+                >
+                  Открыть чат
+                </button>
+              )}
+              <select
+                className="rounded-[14px] border border-line bg-white px-3 py-1.5 text-xs font-semibold text-ink outline-none"
+                onChange={(e) => void updateStatus(r.id, e.target.value)}
+                value={r.status}
+              >
+                {Object.entries(STATUS_LABELS).map(([val, label]) => (
+                  <option key={val} value={val}>{label}</option>
+                ))}
+              </select>
+            </div>
           </div>
         </div>
       ))}
@@ -455,6 +471,7 @@ const RequestsPanel = () => {
 // ── Users Panel ───────────────────────────────────────────────────────────────
 const UsersPanel = () => {
   const { addToast } = useToast();
+  const confirm = useConfirm();
   const [users, setUsers] = useState<AdminUser[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -465,6 +482,26 @@ const UsersPanel = () => {
       .finally(() => setIsLoading(false));
   }, [addToast]);
 
+  const toggleBlock = async (u: AdminUser) => {
+    const nextActive = !u.isActive;
+    const ok = await confirm({
+      title: nextActive ? 'Разблокировать пользователя?' : 'Заблокировать пользователя?',
+      message: nextActive
+        ? `${u.telegramUsername ? '@' + u.telegramUsername : u.firstName ?? 'Пользователь'} снова сможет входить.`
+        : `${u.telegramUsername ? '@' + u.telegramUsername : u.firstName ?? 'Пользователь'} потеряет доступ к аккаунту (блокировка по Telegram).`,
+      confirmText: nextActive ? 'Разблокировать' : 'Заблокировать',
+      danger: !nextActive,
+    });
+    if (!ok) return;
+    try {
+      await adminBlockUser(u.id, nextActive);
+      setUsers((prev) => prev.map((x) => (x.id === u.id ? { ...x, isActive: nextActive } : x)));
+      addToast(nextActive ? 'Пользователь разблокирован' : 'Пользователь заблокирован', 'success');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Ошибка', 'error');
+    }
+  };
+
   if (isLoading) return <div className="text-muted text-sm">Загрузка...</div>;
 
   return (
@@ -474,9 +511,14 @@ const UsersPanel = () => {
         <div key={u.id} className="rounded-[20px] border border-line bg-[#f5f8fd] p-5">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <div className="font-semibold text-ink">
+              <div className="flex flex-wrap items-center gap-2 font-semibold text-ink">
                 {u.firstName ?? '—'}{u.lastName ? ` ${u.lastName}` : ''}
-                <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-semibold ${u.role === 'ADMIN' ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700'}`}>{u.role}</span>
+                <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${u.role === 'ADMIN' ? 'bg-purple-50 text-purple-700' : 'bg-blue-50 text-blue-700'}`}>{u.role}</span>
+                {!u.isActive && (
+                  <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs font-semibold text-red-700">
+                    Заблокирован
+                  </span>
+                )}
               </div>
               <div className="mt-1 text-sm text-muted">
                 {u.email ?? (u.telegramUsername ? `@${u.telegramUsername}` : '—')}
@@ -485,6 +527,19 @@ const UsersPanel = () => {
                 Заявок: {u._count.exchangeRequests} | Чатов: {u._count.chatThreads} | Зарегистрирован: {new Date(u.createdAt).toLocaleDateString('ru')}
               </div>
             </div>
+            {u.role !== 'ADMIN' && (
+              <button
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-xs font-semibold transition ${
+                  u.isActive
+                    ? 'border-red-200 text-red-600 hover:bg-red-50'
+                    : 'border-brand text-brand hover:bg-brand hover:text-white'
+                }`}
+                onClick={() => void toggleBlock(u)}
+                type="button"
+              >
+                {u.isActive ? 'Заблокировать' : 'Разблокировать'}
+              </button>
+            )}
           </div>
         </div>
       ))}
@@ -493,38 +548,65 @@ const UsersPanel = () => {
 };
 
 // ── Chats Panel ───────────────────────────────────────────────────────────────
-const ChatsPanel = () => {
+const ChatsPanel = ({
+  initialThreadId,
+  onUnreadTotalChange,
+}: {
+  initialThreadId: string | null;
+  onUnreadTotalChange: (total: number) => void;
+}) => {
   const { addToast } = useToast();
+  const confirm = useConfirm();
   const [threads, setThreads] = useState<AdminChatThread[]>([]);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(initialThreadId);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
 
-  useEffect(() => {
+  const reloadThreads = () =>
     adminFetchChats()
-      .then(setThreads)
-      .catch(() => addToast('Не удалось загрузить чаты', 'error'))
-      .finally(() => setIsLoading(false));
-  }, [addToast]);
+      .then((list) => {
+        setThreads(list);
+        onUnreadTotalChange(list.reduce((sum, t) => sum + (t.unreadCount || 0), 0));
+      })
+      .catch(() => addToast('Не удалось загрузить чаты', 'error'));
+
+  useEffect(() => {
+    reloadThreads().finally(() => setIsLoading(false));
+    const socket = connectSocket();
+    const onPing = () => void reloadThreads();
+    socket.on('unread_ping', onPing);
+    return () => {
+      socket.off('unread_ping', onPing);
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  // Open a thread requested from the Requests tab.
+  useEffect(() => {
+    if (initialThreadId) setSelectedId(initialThreadId);
+  }, [initialThreadId]);
 
   useEffect(() => {
     if (!selectedId) return;
 
-    // Clear stale messages of the previous thread and guard against
-    // out-of-order responses when switching threads quickly.
     setMessages([]);
     let cancelled = false;
 
     adminFetchThreadMessages(selectedId)
       .then((msgs) => {
-        if (!cancelled) setMessages(msgs);
+        if (!cancelled) {
+          setMessages(msgs);
+          // Opening marks it read → refresh badges.
+          void reloadThreads();
+        }
       })
       .catch(() => addToast('Не удалось загрузить сообщения', 'error'));
 
     return () => {
       cancelled = true;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedId, addToast]);
 
   useThreadSocket(selectedId, (msg) => setMessages((prev) => appendUnique(prev, msg)));
@@ -535,9 +617,45 @@ const ChatsPanel = () => {
 
   const send = async (body: string, attachments: Attachment[]) => {
     if (!selectedId) return;
-    // Show the message immediately even if the socket echo is delayed or lost.
     const sent = await adminSendMessage(selectedId, body, attachments);
     setMessages((prev) => appendUnique(prev, sent));
+  };
+
+  const deleteThread = async () => {
+    if (!selectedId) return;
+    const ok = await confirm({
+      title: 'Удалить чат для всех?',
+      message: 'Чат и вся переписка будут удалены и у пользователя, и у вас. Это необратимо.',
+      confirmText: 'Удалить для всех',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await adminDeleteThread(selectedId);
+      setSelectedId(null);
+      setMessages([]);
+      await reloadThreads();
+      addToast('Чат удалён', 'success');
+    } catch {
+      addToast('Не удалось удалить чат', 'error');
+    }
+  };
+
+  const deleteMessage = async (messageId: string) => {
+    if (!selectedId) return;
+    const ok = await confirm({
+      title: 'Удалить сообщение для всех?',
+      message: 'Сообщение исчезнет и у пользователя, и у вас.',
+      confirmText: 'Удалить для всех',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await adminDeleteMessage(selectedId, messageId);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    } catch {
+      addToast('Не удалось удалить сообщение', 'error');
+    }
   };
 
   if (isLoading) return <div className="text-muted text-sm">Загрузка...</div>;
@@ -555,8 +673,15 @@ const ChatsPanel = () => {
               onClick={() => setSelectedId(t.id)}
               type="button"
             >
-              <div className="text-sm font-semibold text-ink">
-                {t.user.firstName ?? t.user.telegramUsername ?? 'Пользователь'}
+              <div className="flex items-center justify-between gap-2">
+                <span className="text-sm font-semibold text-ink">
+                  {t.user.firstName ?? t.user.telegramUsername ?? 'Пользователь'}
+                </span>
+                {t.unreadCount > 0 && (
+                  <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-bold text-white">
+                    {t.unreadCount}
+                  </span>
+                )}
               </div>
               <div className="mt-0.5 text-xs text-muted line-clamp-1">{t.subject ?? '—'}</div>
               {t.lastMessage && <div className="mt-1 text-xs text-muted/70 line-clamp-1">{t.lastMessage}</div>}
@@ -567,10 +692,17 @@ const ChatsPanel = () => {
 
       {selectedId ? (
         <div className="flex h-[calc(100dvh-16rem)] min-h-[460px] flex-col overflow-hidden rounded-[20px] border border-line bg-[#eef2f9]">
-          <div className="border-b border-line/70 px-4 py-3">
+          <div className="flex items-center justify-between gap-2 border-b border-line/70 bg-white px-4 py-3">
             <div className="text-sm font-semibold text-ink">
               {threads.find((t) => t.id === selectedId)?.subject ?? 'Чат'}
             </div>
+            <button
+              className="rounded-full border border-red-200 px-3 py-1 text-xs font-semibold text-red-600 transition hover:bg-red-50"
+              onClick={() => void deleteThread()}
+              type="button"
+            >
+              Удалить чат
+            </button>
           </div>
 
           <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
@@ -590,7 +722,18 @@ const ChatsPanel = () => {
               }
 
               return (
-                <div key={m.id} className={`flex ${isAdmin ? 'justify-end' : 'justify-start'}`}>
+                <div key={m.id} className={`group flex items-center gap-1.5 ${isAdmin ? 'justify-end' : 'justify-start'}`}>
+                  {isAdmin && (
+                    <button
+                      aria-label="Удалить для всех"
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+                      onClick={() => void deleteMessage(m.id)}
+                      title="Удалить для всех"
+                      type="button"
+                    >
+                      ✕
+                    </button>
+                  )}
                   <div className={`max-w-[78%] rounded-[16px] px-4 py-2.5 text-sm ${isAdmin ? 'bg-brand text-white' : 'bg-white border border-line text-ink'}`}>
                     {!isAdmin && (
                       <div className="text-xs font-semibold mb-1 opacity-70">
@@ -608,6 +751,17 @@ const ChatsPanel = () => {
                     ))}
                     <div className={`text-xs mt-1 opacity-60`}>{new Date(m.createdAt).toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}</div>
                   </div>
+                  {!isAdmin && (
+                    <button
+                      aria-label="Удалить для всех"
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+                      onClick={() => void deleteMessage(m.id)}
+                      title="Удалить для всех"
+                      type="button"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
               );
             })}
@@ -627,18 +781,42 @@ const ChatsPanel = () => {
 
 // ── Main Admin Page ───────────────────────────────────────────────────────────
 const TABS: { id: Tab; label: string }[] = [
+  { id: 'requests', label: 'Заявки' },
+  { id: 'chats', label: 'Чаты' },
   { id: 'rates', label: 'Курсы' },
+  { id: 'users', label: 'Пользователи' },
   { id: 'content', label: 'Контент' },
   { id: 'faq', label: 'FAQ' },
-  { id: 'requests', label: 'Заявки' },
-  { id: 'users', label: 'Пользователи' },
-  { id: 'chats', label: 'Чаты' },
 ];
 
 export const AdminPage = () => {
-  const [tab, setTab] = useState<Tab>('rates');
+  const [tab, setTab] = useState<Tab>('requests');
+  // When opening a chat from a request, remember which thread to select.
+  const [pendingThreadId, setPendingThreadId] = useState<string | null>(null);
+  const [chatsUnread, setChatsUnread] = useState(0);
 
   usePageTitle('Панель управления');
+
+  // Live badge on the "Чаты" tab: total unread from users, refreshed on ping.
+  useEffect(() => {
+    const load = () =>
+      adminFetchChats()
+        .then((threads) => setChatsUnread(threads.reduce((sum, t) => sum + (t.unreadCount || 0), 0)))
+        .catch(() => undefined);
+    load();
+    const socket = connectSocket();
+    socket.on('unread_ping', load);
+    const interval = window.setInterval(load, 30_000);
+    return () => {
+      socket.off('unread_ping', load);
+      window.clearInterval(interval);
+    };
+  }, []);
+
+  const openChatForThread = (threadId: string) => {
+    setPendingThreadId(threadId);
+    setTab('chats');
+  };
 
   return (
     <div>
@@ -646,11 +824,18 @@ export const AdminPage = () => {
         {TABS.map((t) => (
           <button
             key={t.id}
-            className={`rounded-full px-5 py-2 text-sm font-semibold transition ${tab === t.id ? 'bg-brand text-white' : 'border border-line bg-white text-ink hover:border-brand hover:text-brand'}`}
+            className={`inline-flex items-center gap-2 rounded-full px-5 py-2 text-sm font-semibold transition ${tab === t.id ? 'bg-brand text-white' : 'border border-line bg-white text-ink hover:border-brand hover:text-brand'}`}
             onClick={() => setTab(t.id)}
             type="button"
           >
             {t.label}
+            {t.id === 'chats' && chatsUnread > 0 && (
+              <span
+                className={`flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-bold ${tab === t.id ? 'bg-white text-brand' : 'bg-brand text-white'}`}
+              >
+                {chatsUnread}
+              </span>
+            )}
           </button>
         ))}
       </div>
@@ -658,9 +843,14 @@ export const AdminPage = () => {
       {tab === 'rates' && <RatesPanel />}
       {tab === 'content' && <ContentPanel />}
       {tab === 'faq' && <FaqPanel />}
-      {tab === 'requests' && <RequestsPanel />}
+      {tab === 'requests' && <RequestsPanel onOpenChat={openChatForThread} />}
       {tab === 'users' && <UsersPanel />}
-      {tab === 'chats' && <ChatsPanel />}
+      {tab === 'chats' && (
+        <ChatsPanel
+          initialThreadId={pendingThreadId}
+          onUnreadTotalChange={setChatsUnread}
+        />
+      )}
     </div>
   );
 };

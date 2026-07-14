@@ -69,6 +69,15 @@ export default fp(async (app: FastifyInstance) => {
   });
 
   io.on('connection', (socket) => {
+    const identity = identityOf(socket);
+    // Personal / role rooms power the live unread indicators.
+    if (identity) {
+      void socket.join(`user:${identity.userId}`);
+      if (identity.role === 'ADMIN') {
+        void socket.join('admins');
+      }
+    }
+
     socket.on('join_thread', async (threadId: unknown) => {
       const identity = identityOf(socket);
       if (!identity || typeof threadId !== 'string' || threadId.length > 64) {

@@ -174,6 +174,12 @@ model ChatThread {
   exchangeRequestId String?          @unique
   subject           String?
   lastMessageAt     DateTime?
+  // User "delete for me": the thread is hidden from the user but stays visible
+  // to the admin. Admin deletion hard-deletes the row (gone for everyone).
+  hiddenForUser     Boolean          @default(false)
+  // Per-side read markers drive the unread indicators.
+  userLastReadAt    DateTime?
+  adminLastReadAt   DateTime?
   createdAt         DateTime         @default(now())
   updatedAt         DateTime         @updatedAt
   user              User             @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -192,6 +198,8 @@ model ChatMessage {
   // Array of { token, name, mime, size } — files live on disk under UPLOAD_DIR,
   // keyed by an unguessable token; retrieval is authorized per thread.
   attachments Json?
+  // User "delete for me": hidden from the user, still visible to the admin.
+  hiddenForUser Boolean           @default(false)
   status      ChatMessageStatus   @default(SENT)
   createdAt   DateTime            @default(now())
   updatedAt   DateTime            @updatedAt

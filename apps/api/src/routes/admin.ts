@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { audit } from '../lib/audit.js';
 import { requireAdmin } from '../lib/auth-guard.js';
 import {
+  attachUnreadForAdmin,
   createChatMessage,
   loadThreadMessages,
   streamThreadAttachment,
@@ -237,6 +238,44 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     });
   });
 
+  // Block / unblock a user. isActive is enforced on login, /api/auth/me and the
+  // socket handshake, so a blocked Telegram account cannot access anything —
+  // and because the record is keyed by telegramId, the block persists across
+  // re-logins (the same account maps to the same, still-blocked record).
+  app.patch('/api/admin/users/:id/block', { preHandler: requireAdmin }, async (request, reply) => {
+    const params = idParamsSchema.safeParse(request.params);
+    const body = z.object({ isActive: z.boolean() }).safeParse(request.body);
+    if (!params.success || !body.success) {
+      return reply.status(400).send({ error: 'Неверные данные' });
+    }
+
+    const target = await app.prisma.user.findUnique({
+      where: { id: params.data.id },
+      select: { id: true, role: true },
+    });
+    if (!target) {
+      return reply.status(404).send({ error: 'Пользователь не найден' });
+    }
+    if (target.role === 'ADMIN') {
+      return reply.status(403).send({ error: 'Нельзя заблокировать администратора' });
+    }
+
+    const updated = await app.prisma.user.update({
+      where: { id: params.data.id },
+      data: { isActive: body.data.isActive },
+      select: { id: true, isActive: true },
+    });
+
+    audit(app, {
+      actorId: request.user.userId,
+      action: body.data.isActive ? 'admin.user_unblocked' : 'admin.user_blocked',
+      entityType: 'User',
+      entityId: updated.id,
+    });
+
+    return updated;
+  });
+
   // ── Exchange Requests ───────────────────────────────────────────────────
   app.get('/api/admin/requests', { preHandler: requireAdmin }, async (request, reply) => {
     const query = requestsQuerySchema.safeParse(request.query);
@@ -317,6 +356,8 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       take: 500,
     });
 
+    const unread = await attachUnreadForAdmin(app, threads);
+
     return threads.map((t) => ({
       id: t.id,
       subject: t.subject,
@@ -324,6 +365,7 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       lastMessage: t.messages[0]?.body ?? null,
       lastMessageAt: t.lastMessageAt,
       exchangeRequest: t.exchangeRequest,
+      unreadCount: unread.get(t.id) ?? 0,
     }));
   });
 
@@ -344,7 +386,60 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
         return reply.status(404).send({ error: 'Чат не найден' });
       }
 
+      // Opening the thread marks it read for the admin.
+      await app.prisma.chatThread.update({
+        where: { id: thread.id },
+        data: { adminLastReadAt: new Date() },
+      });
+
       return loadThreadMessages(app, thread.id);
+    },
+  );
+
+  // Admin deletes a chat for everyone (hard delete, cascades messages).
+  app.delete('/api/admin/chats/:threadId', { preHandler: requireAdmin }, async (request, reply) => {
+    const params = threadParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({ error: 'Неверный идентификатор чата' });
+    }
+    await app.prisma.chatThread.delete({ where: { id: params.data.threadId } });
+    audit(app, {
+      actorId: request.user.userId,
+      action: 'admin.chat_deleted',
+      entityType: 'ChatThread',
+      entityId: params.data.threadId,
+    });
+    return { ok: true };
+  });
+
+  // Admin deletes a single message for everyone (hard delete).
+  app.delete(
+    '/api/admin/chats/:threadId/messages/:messageId',
+    { preHandler: requireAdmin },
+    async (request, reply) => {
+      const params = z
+        .object({ threadId: z.string().min(1).max(64), messageId: z.string().min(1).max(64) })
+        .safeParse(request.params);
+      if (!params.success) {
+        return reply.status(400).send({ error: 'Неверный запрос' });
+      }
+      const result = await app.prisma.chatMessage.deleteMany({
+        where: { id: params.data.messageId, threadId: params.data.threadId },
+      });
+      if (result.count === 0) {
+        return reply.status(404).send({ error: 'Сообщение не найдено' });
+      }
+      audit(app, {
+        actorId: request.user.userId,
+        action: 'admin.message_deleted',
+        entityType: 'ChatMessage',
+        entityId: params.data.messageId,
+      });
+      app.io.to(`thread:${params.data.threadId}`).emit('message_deleted', {
+        threadId: params.data.threadId,
+        messageId: params.data.messageId,
+      });
+      return { ok: true };
     },
   );
 

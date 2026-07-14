@@ -14,10 +14,15 @@ import {
 export const MAX_MESSAGE_LENGTH = 4000;
 export const MESSAGES_PAGE_SIZE = 500;
 
-export const loadThreadMessages = async (app: FastifyInstance, threadId: string) => {
-  // Last N messages in chronological order.
+export const loadThreadMessages = async (
+  app: FastifyInstance,
+  threadId: string,
+  forUser = false,
+) => {
+  // Last N messages in chronological order. For the user side we skip messages
+  // they deleted "for me"; the admin always sees everything.
   const messages = await app.prisma.chatMessage.findMany({
-    where: { threadId },
+    where: { threadId, ...(forUser ? { hiddenForUser: false } : {}) },
     include: { sender: { select: { id: true, firstName: true, role: true } } },
     orderBy: { createdAt: 'desc' },
     take: MESSAGES_PAGE_SIZE,
@@ -40,7 +45,7 @@ export const createChatMessage = async (
     ? (params.attachments as unknown as Prisma.InputJsonValue)
     : undefined;
 
-  const [message] = await app.prisma.$transaction([
+  const [message, thread] = await app.prisma.$transaction([
     app.prisma.chatMessage.create({
       data: {
         threadId: params.threadId,
@@ -55,12 +60,61 @@ export const createChatMessage = async (
     app.prisma.chatThread.update({
       where: { id: params.threadId },
       data: { lastMessageAt: new Date() },
+      select: { userId: true },
     }),
   ]);
 
   app.io.to(`thread:${params.threadId}`).emit('new_message', message);
 
+  // Live unread indicator: ping the audience that did NOT send this message.
+  if (params.senderRole === 'USER') {
+    app.io.to('admins').emit('unread_ping', { scope: 'admin' });
+  } else {
+    app.io.to(`user:${thread.userId}`).emit('unread_ping', { scope: 'user', threadId: params.threadId });
+  }
+
   return message;
+};
+
+// Counts unread messages per thread for one side (user or admin), based on the
+// per-side read markers.
+export const attachUnreadForUser = async (
+  app: FastifyInstance,
+  threads: { id: string; userLastReadAt: Date | null }[],
+): Promise<Map<string, number>> => {
+  const entries = await Promise.all(
+    threads.map(async (t) => {
+      const count = await app.prisma.chatMessage.count({
+        where: {
+          threadId: t.id,
+          hiddenForUser: false,
+          senderRole: { in: ['ADMIN', 'SYSTEM'] },
+          ...(t.userLastReadAt ? { createdAt: { gt: t.userLastReadAt } } : {}),
+        },
+      });
+      return [t.id, count] as const;
+    }),
+  );
+  return new Map(entries);
+};
+
+export const attachUnreadForAdmin = async (
+  app: FastifyInstance,
+  threads: { id: string; adminLastReadAt: Date | null }[],
+): Promise<Map<string, number>> => {
+  const entries = await Promise.all(
+    threads.map(async (t) => {
+      const count = await app.prisma.chatMessage.count({
+        where: {
+          threadId: t.id,
+          senderRole: 'USER',
+          ...(t.adminLastReadAt ? { createdAt: { gt: t.adminLastReadAt } } : {}),
+        },
+      });
+      return [t.id, count] as const;
+    }),
+  );
+  return new Map(entries);
 };
 
 // Streams an attachment that belongs to a message in the given thread.

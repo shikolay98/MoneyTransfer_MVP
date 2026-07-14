@@ -246,6 +246,39 @@ const authRoutes: FastifyPluginAsync = async (app) => {
     reply.clearCookie(env.COOKIE_NAME, { path: '/' });
     return { ok: true };
   });
+
+  // User deletes their own account. Chats cascade-delete; exchange requests are
+  // kept but anonymised (userId set to null) so the manager retains history.
+  app.delete('/api/auth/me', { preHandler: requireAuth }, async (request, reply) => {
+    const user = await app.prisma.user.findUnique({
+      where: { id: request.user.userId },
+      select: { id: true, role: true, telegramUsername: true },
+    });
+    if (!user) {
+      reply.clearCookie(env.COOKIE_NAME, { path: '/' });
+      return { ok: true };
+    }
+
+    // Admins cannot self-delete (would lock out the panel).
+    if (user.role === 'ADMIN') {
+      return reply.status(403).send({ error: 'Администратор не может удалить свой аккаунт' });
+    }
+
+    // ExchangeRequest.userId is onDelete: SetNull → requests survive, anonymised.
+    // ChatThread has onDelete: Cascade → the user's chats/messages are removed.
+    await app.prisma.user.delete({ where: { id: user.id } });
+
+    audit(app, {
+      actorId: null,
+      action: 'user.account_deleted',
+      entityType: 'User',
+      entityId: user.id,
+      payload: { telegramUsername: user.telegramUsername },
+    });
+
+    reply.clearCookie(env.COOKIE_NAME, { path: '/' });
+    return { ok: true };
+  });
 };
 
 export default authRoutes;

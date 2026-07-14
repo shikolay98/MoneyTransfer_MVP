@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { ALLOWED_MIME, MAX_ATTACHMENTS_PER_MESSAGE, MAX_UPLOAD_BYTES } from '../lib/attachments.js';
 import { requireAuth } from '../lib/auth-guard.js';
 import {
+  attachUnreadForUser,
   createChatMessage,
   loadThreadMessages,
   MAX_MESSAGE_LENGTH,
@@ -36,14 +37,21 @@ const attachmentParamsSchema = z.object({
 const chatRoutes: FastifyPluginAsync = async (app) => {
   app.get('/api/chats/my', { preHandler: requireAuth }, async (request) => {
     const threads = await app.prisma.chatThread.findMany({
-      where: { userId: request.user.userId },
+      // Threads the user deleted "for me" are hidden from their list.
+      where: { userId: request.user.userId, hiddenForUser: false },
       include: {
-        messages: { orderBy: { createdAt: 'desc' }, take: 1 },
+        messages: {
+          where: { hiddenForUser: false },
+          orderBy: { createdAt: 'desc' },
+          take: 1,
+        },
         exchangeRequest: { select: { id: true, status: true } },
       },
       orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
       take: 100,
     });
+
+    const unread = await attachUnreadForUser(app, threads);
 
     return threads.map((t) => ({
       id: t.id,
@@ -51,6 +59,7 @@ const chatRoutes: FastifyPluginAsync = async (app) => {
       lastMessage: t.messages[0]?.body ?? null,
       lastMessageAt: t.lastMessageAt,
       exchangeRequest: t.exchangeRequest,
+      unreadCount: unread.get(t.id) ?? 0,
     }));
   });
 
@@ -68,7 +77,13 @@ const chatRoutes: FastifyPluginAsync = async (app) => {
       return reply.status(403).send({ error: 'Forbidden' });
     }
 
-    return loadThreadMessages(app, thread.id);
+    // Opening the thread marks it read for the user.
+    await app.prisma.chatThread.update({
+      where: { id: thread.id },
+      data: { userLastReadAt: new Date() },
+    });
+
+    return loadThreadMessages(app, thread.id, true);
   });
 
   app.post(
@@ -121,6 +136,59 @@ const chatRoutes: FastifyPluginAsync = async (app) => {
       }
 
       return streamThreadAttachment(app, reply, params.data.threadId, params.data.token);
+    },
+  );
+
+  // User "delete for me": hide the whole thread from the user; the admin keeps it.
+  app.delete('/api/chats/:threadId', { preHandler: requireAuth }, async (request, reply) => {
+    const params = threadParamsSchema.safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({ error: 'Неверный идентификатор чата' });
+    }
+
+    const thread = await app.prisma.chatThread.findUnique({
+      where: { id: params.data.threadId },
+      select: { userId: true },
+    });
+    if (!thread || thread.userId !== request.user.userId) {
+      return reply.status(403).send({ error: 'Forbidden' });
+    }
+
+    await app.prisma.chatThread.update({
+      where: { id: params.data.threadId },
+      data: { hiddenForUser: true },
+    });
+    return { ok: true };
+  });
+
+  // User "delete for me" of a single message.
+  app.delete(
+    '/api/chats/:threadId/messages/:messageId',
+    { preHandler: requireAuth },
+    async (request, reply) => {
+      const params = z
+        .object({ threadId: z.string().min(1).max(64), messageId: z.string().min(1).max(64) })
+        .safeParse(request.params);
+      if (!params.success) {
+        return reply.status(400).send({ error: 'Неверный запрос' });
+      }
+
+      const thread = await app.prisma.chatThread.findUnique({
+        where: { id: params.data.threadId },
+        select: { userId: true },
+      });
+      if (!thread || thread.userId !== request.user.userId) {
+        return reply.status(403).send({ error: 'Forbidden' });
+      }
+
+      const result = await app.prisma.chatMessage.updateMany({
+        where: { id: params.data.messageId, threadId: params.data.threadId },
+        data: { hiddenForUser: true },
+      });
+      if (result.count === 0) {
+        return reply.status(404).send({ error: 'Сообщение не найдено' });
+      }
+      return { ok: true };
     },
   );
 

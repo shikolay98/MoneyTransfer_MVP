@@ -5,12 +5,15 @@ import { AttachmentView } from '../components/chat/attachment-view';
 import { ChatComposer } from '../components/chat/chat-composer';
 import { CloseIcon, SupportIcon } from '../components/ui/icons';
 import {
+  deleteMyMessage,
   fetchThreadMessages,
   sendMessage,
   type Attachment,
   type ChatMessage,
 } from '../lib/api';
 import { useAuth } from '../lib/auth-context';
+import { useConfirm } from '../lib/confirm-context';
+import { connectSocket } from '../lib/socket';
 import { useToast } from '../lib/toast-context';
 import { usePageTitle } from '../lib/use-page-title';
 import { appendUnique, useThreadSocket } from '../lib/use-thread-socket';
@@ -29,6 +32,7 @@ export const ChatPage = () => {
   const { threadId } = useParams<{ threadId: string }>();
   const { user } = useAuth();
   const { addToast } = useToast();
+  const confirm = useConfirm();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -61,6 +65,21 @@ export const ChatPage = () => {
 
   useThreadSocket(threadId, (msg) => setMessages((prev) => appendUnique(prev, msg)));
 
+  // Admin can delete a message for everyone — drop it live when it happens.
+  useEffect(() => {
+    if (!threadId) return;
+    const socket = connectSocket();
+    const onDeleted = (payload: { threadId: string; messageId: string }) => {
+      if (payload.threadId === threadId) {
+        setMessages((prev) => prev.filter((m) => m.id !== payload.messageId));
+      }
+    };
+    socket.on('message_deleted', onDeleted);
+    return () => {
+      socket.off('message_deleted', onDeleted);
+    };
+  }, [threadId]);
+
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
@@ -70,6 +89,23 @@ export const ChatPage = () => {
     // Show the message immediately even if the socket echo is delayed or lost.
     const sent = await sendMessage(threadId, body, attachments);
     setMessages((prev) => appendUnique(prev, sent));
+  };
+
+  const handleDeleteMessage = async (messageId: string) => {
+    if (!threadId) return;
+    const ok = await confirm({
+      title: 'Удалить сообщение у себя?',
+      message: 'Сообщение исчезнет только у вас. У менеджера оно останется.',
+      confirmText: 'Удалить',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteMyMessage(threadId, messageId);
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    } catch {
+      addToast('Не удалось удалить сообщение', 'error');
+    }
   };
 
   let lastDay = '';
@@ -142,7 +178,18 @@ export const ChatPage = () => {
             return (
               <div key={m.id}>
                 {dayDivider}
-                <div className={`flex ${isMe ? 'justify-end' : 'justify-start'}`}>
+                <div className={`group flex items-center gap-1.5 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                  {isMe && (
+                    <button
+                      aria-label="Удалить сообщение у себя"
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+                      onClick={() => void handleDeleteMessage(m.id)}
+                      title="Удалить у себя"
+                      type="button"
+                    >
+                      ✕
+                    </button>
+                  )}
                   <div
                     className={[
                       'max-w-[85%] rounded-2xl px-3.5 py-2 text-[15px] leading-relaxed shadow-sm sm:max-w-[70%]',
@@ -169,6 +216,17 @@ export const ChatPage = () => {
                       {created.toLocaleTimeString('ru', { hour: '2-digit', minute: '2-digit' })}
                     </div>
                   </div>
+                  {!isMe && (
+                    <button
+                      aria-label="Удалить сообщение у себя"
+                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+                      onClick={() => void handleDeleteMessage(m.id)}
+                      title="Удалить у себя"
+                      type="button"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </div>
               </div>
             );

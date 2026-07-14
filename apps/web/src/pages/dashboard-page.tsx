@@ -3,12 +3,16 @@ import { Link, useNavigate } from 'react-router-dom';
 
 import {
   createChatThread,
+  deleteAccount,
+  deleteMyChatThread,
   fetchMyChats,
   fetchMyRequests,
   type ChatThread,
   type ExchangeRequestItem,
 } from '../lib/api';
 import { useAuth } from '../lib/auth-context';
+import { useConfirm } from '../lib/confirm-context';
+import { connectSocket } from '../lib/socket';
 import { useToast } from '../lib/toast-context';
 import { usePageTitle } from '../lib/use-page-title';
 
@@ -32,8 +36,9 @@ const formatAmount = (value: string) => {
 };
 
 export const DashboardPage = () => {
-  const { user } = useAuth();
+  const { user, logout } = useAuth();
   const { addToast } = useToast();
+  const confirm = useConfirm();
   const navigate = useNavigate();
   const [requests, setRequests] = useState<ExchangeRequestItem[]>([]);
   const [chats, setChats] = useState<ChatThread[]>([]);
@@ -52,6 +57,18 @@ export const DashboardPage = () => {
       .finally(() => setIsLoading(false));
   }, [addToast]);
 
+  // Live unread: refetch the chat list when the manager sends a new message.
+  useEffect(() => {
+    const socket = connectSocket();
+    const refetch = () => void fetchMyChats().then(setChats).catch(() => undefined);
+    socket.on('unread_ping', refetch);
+    window.addEventListener('focus', refetch);
+    return () => {
+      socket.off('unread_ping', refetch);
+      window.removeEventListener('focus', refetch);
+    };
+  }, []);
+
   const handleStartChat = async () => {
     setIsStartingChat(true);
     try {
@@ -61,6 +78,42 @@ export const DashboardPage = () => {
       addToast('Не удалось открыть чат', 'error');
     } finally {
       setIsStartingChat(false);
+    }
+  };
+
+  const handleDeleteChat = async (threadId: string) => {
+    const ok = await confirm({
+      title: 'Удалить чат?',
+      message: 'Чат исчезнет из вашего списка. Менеджер сохранит переписку у себя.',
+      confirmText: 'Удалить',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteMyChatThread(threadId);
+      setChats((prev) => prev.filter((c) => c.id !== threadId));
+      addToast('Чат удалён', 'success');
+    } catch {
+      addToast('Не удалось удалить чат', 'error');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    const ok = await confirm({
+      title: 'Удалить аккаунт?',
+      message:
+        'Ваш аккаунт и переписка будут удалены без возможности восстановления. Это действие необратимо.',
+      confirmText: 'Удалить аккаунт',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteAccount();
+      await logout();
+      addToast('Аккаунт удалён', 'info');
+      void navigate('/');
+    } catch (err) {
+      addToast(err instanceof Error ? err.message : 'Не удалось удалить аккаунт', 'error');
     }
   };
 
@@ -135,7 +188,6 @@ export const DashboardPage = () => {
                 </div>
               );
 
-              // The whole card opens the chat when a thread exists.
               return r.chatThreadId ? (
                 <Link
                   key={r.id}
@@ -159,13 +211,6 @@ export const DashboardPage = () => {
         {/* Profile */}
         <div className="rounded-[20px] border border-line bg-white p-6">
           <h3 className="text-base font-semibold text-ink mb-3">Профиль</h3>
-          {user?.photoUrl && (
-            <img
-              alt={`Фото профиля ${user.firstName ?? ''}`.trim()}
-              className="mb-3 h-12 w-12 rounded-full"
-              src={user.photoUrl}
-            />
-          )}
           <div className="grid gap-1.5 text-sm">
             <div>
               <span className="text-muted">Имя: </span>
@@ -184,6 +229,15 @@ export const DashboardPage = () => {
               </div>
             )}
           </div>
+          {user?.role !== 'ADMIN' && (
+            <button
+              className="mt-4 text-xs font-semibold text-danger transition hover:underline"
+              onClick={() => void handleDeleteAccount()}
+              type="button"
+            >
+              Удалить аккаунт
+            </button>
+          )}
         </div>
 
         {/* Chats */}
@@ -199,16 +253,35 @@ export const DashboardPage = () => {
           ) : (
             <div className="grid gap-2">
               {chats.map((ch) => (
-                <Link
+                <div
                   key={ch.id}
-                  className="block rounded-[16px] border border-line p-3 hover:border-brand transition"
-                  to={`/dashboard/chat/${ch.id}`}
+                  className="group relative rounded-[16px] border border-line transition hover:border-brand"
                 >
-                  <div className="text-sm font-semibold text-ink">{ch.subject ?? 'Общий вопрос'}</div>
-                  {ch.lastMessage && (
-                    <div className="mt-1 text-xs text-muted line-clamp-1">{ch.lastMessage}</div>
-                  )}
-                </Link>
+                  <Link className="block p-3 pr-9" to={`/dashboard/chat/${ch.id}`}>
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-semibold text-ink">
+                        {ch.subject ?? 'Общий вопрос'}
+                      </span>
+                      {ch.unreadCount > 0 && (
+                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-bold text-white">
+                          {ch.unreadCount}
+                        </span>
+                      )}
+                    </div>
+                    {ch.lastMessage && (
+                      <div className="mt-1 text-xs text-muted line-clamp-1">{ch.lastMessage}</div>
+                    )}
+                  </Link>
+                  <button
+                    aria-label="Удалить чат"
+                    className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full text-muted opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+                    onClick={() => void handleDeleteChat(ch.id)}
+                    title="Удалить чат у себя"
+                    type="button"
+                  >
+                    ✕
+                  </button>
+                </div>
               ))}
             </div>
           )}
