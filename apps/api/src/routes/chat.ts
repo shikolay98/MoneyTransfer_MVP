@@ -205,6 +205,13 @@ const chatRoutes: FastifyPluginAsync = async (app) => {
     });
 
     if (existing) {
+      // Reopening the general chat un-hides it if the user had deleted it.
+      if (existing.hiddenForUser) {
+        return app.prisma.chatThread.update({
+          where: { id: existing.id },
+          data: { hiddenForUser: false },
+        });
+      }
       return existing;
     }
 

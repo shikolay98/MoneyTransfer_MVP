@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import {
   createChatThread,
   deleteAccount,
+  deleteExchangeRequest,
   deleteMyChatThread,
   fetchMyChats,
   fetchMyRequests,
@@ -61,10 +62,20 @@ export const DashboardPage = () => {
   useEffect(() => {
     const socket = connectSocket();
     const refetch = () => void fetchMyChats().then(setChats).catch(() => undefined);
+    // The manager deleted a chat for everyone — drop it from the list and from
+    // the matching request card live.
+    const onThreadDeleted = (payload: { threadId: string }) => {
+      setChats((prev) => prev.filter((c) => c.id !== payload.threadId));
+      setRequests((prev) =>
+        prev.map((r) => (r.chatThreadId === payload.threadId ? { ...r, chatThreadId: null } : r)),
+      );
+    };
     socket.on('unread_ping', refetch);
+    socket.on('thread_deleted', onThreadDeleted);
     window.addEventListener('focus', refetch);
     return () => {
       socket.off('unread_ping', refetch);
+      socket.off('thread_deleted', onThreadDeleted);
       window.removeEventListener('focus', refetch);
     };
   }, []);
@@ -92,9 +103,35 @@ export const DashboardPage = () => {
     try {
       await deleteMyChatThread(threadId);
       setChats((prev) => prev.filter((c) => c.id !== threadId));
+      // Drop the "Открыть чат" action from the matching request card too.
+      setRequests((prev) =>
+        prev.map((r) => (r.chatThreadId === threadId ? { ...r, chatThreadId: null } : r)),
+      );
       addToast('Чат удалён', 'success');
     } catch {
       addToast('Не удалось удалить чат', 'error');
+    }
+  };
+
+  const handleDeleteRequest = async (requestId: string) => {
+    const ok = await confirm({
+      title: 'Удалить заявку?',
+      message: 'Заявка исчезнет из вашего кабинета вместе с чатом. Отменить это действие нельзя.',
+      confirmText: 'Удалить',
+      danger: true,
+    });
+    if (!ok) return;
+    try {
+      await deleteExchangeRequest(requestId);
+      const req = requests.find((r) => r.id === requestId);
+      setRequests((prev) => prev.filter((r) => r.id !== requestId));
+      // Its chat (if any) is hidden server-side — mirror that in the list.
+      if (req?.chatThreadId) {
+        setChats((prev) => prev.filter((c) => c.id !== req.chatThreadId));
+      }
+      addToast('Заявка удалена', 'success');
+    } catch {
+      addToast('Не удалось удалить заявку', 'error');
     }
   };
 
@@ -137,7 +174,7 @@ export const DashboardPage = () => {
     <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
       {/* Left: Requests */}
       <div>
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex min-h-[2.5rem] items-center justify-between">
           <h2 className="text-xl font-semibold text-ink">Мои заявки ({requests.length})</h2>
           <Link
             className="rounded-full bg-brand px-4 py-2 text-xs font-semibold text-white hover:bg-brand/90"
@@ -163,7 +200,7 @@ export const DashboardPage = () => {
           <div className="grid gap-3">
             {requests.map((r) => {
               const cardBody = (
-                <div className="flex items-start justify-between gap-4">
+                <div className="flex items-center justify-between gap-4 pr-6">
                   <div>
                     <div className="flex items-center gap-2">
                       <span className="font-semibold text-ink">
@@ -188,17 +225,27 @@ export const DashboardPage = () => {
                 </div>
               );
 
-              return r.chatThreadId ? (
-                <Link
-                  key={r.id}
-                  className="group block rounded-[20px] border border-line bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-panel"
-                  to={`/dashboard/chat/${r.chatThreadId}`}
-                >
-                  {cardBody}
-                </Link>
-              ) : (
-                <div key={r.id} className="rounded-[20px] border border-line bg-white p-5">
-                  {cardBody}
+              return (
+                <div key={r.id} className="group relative">
+                  {r.chatThreadId ? (
+                    <Link
+                      className="group block rounded-[20px] border border-line bg-white p-5 transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-panel"
+                      to={`/dashboard/chat/${r.chatThreadId}`}
+                    >
+                      {cardBody}
+                    </Link>
+                  ) : (
+                    <div className="rounded-[20px] border border-line bg-white p-5">{cardBody}</div>
+                  )}
+                  <button
+                    aria-label="Удалить заявку"
+                    className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full text-muted opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+                    onClick={() => void handleDeleteRequest(r.id)}
+                    title="Удалить заявку"
+                    type="button"
+                  >
+                    ✕
+                  </button>
                 </div>
               );
             })}
@@ -207,7 +254,11 @@ export const DashboardPage = () => {
       </div>
 
       {/* Right: Profile + Chats */}
-      <div className="grid gap-4 content-start">
+      <div className="content-start">
+        <div className="mb-4 flex min-h-[2.5rem] items-center">
+          <h2 className="text-xl font-semibold text-ink">Аккаунт</h2>
+        </div>
+        <div className="grid gap-4">
         {/* Profile */}
         <div className="rounded-[20px] border border-line bg-white p-6">
           <h3 className="text-base font-semibold text-ink mb-3">Профиль</h3>
@@ -294,6 +345,7 @@ export const DashboardPage = () => {
           >
             {isStartingChat ? 'Открываем чат...' : 'Написать менеджеру'}
           </button>
+        </div>
         </div>
       </div>
     </div>

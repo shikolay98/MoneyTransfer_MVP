@@ -94,6 +94,11 @@ export const createExchangeRequest = (data: ExchangeRequestPayload) =>
 export const fetchMyRequests = () =>
   request<ExchangeRequestItem[]>('/api/exchange-requests/my');
 
+// User "delete for me": the request leaves the cabinet and becomes CANCELLED
+// for the admin; its chat is hidden too.
+export const deleteExchangeRequest = (id: string) =>
+  request<{ ok: boolean }>(`/api/exchange-requests/${id}`, { method: 'DELETE' });
+
 // ── Chat ─────────────────────────────────────────────────────────────────────
 export type ChatThread = {
   id: string;

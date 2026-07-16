@@ -105,13 +105,14 @@ const exchangeRequestRoutes: FastifyPluginAsync = async (app) => {
 
   app.get('/api/exchange-requests/my', { preHandler: requireAuth }, async (request) => {
     const requests = await app.prisma.exchangeRequest.findMany({
-      where: { userId: request.user.userId },
+      // Requests the user deleted "for me" are hidden from their cabinet.
+      where: { userId: request.user.userId, hiddenForUser: false },
       include: {
         sendCurrency: true,
         receiveCurrency: true,
         senderBank: true,
         receiverBank: true,
-        chatThread: { select: { id: true } },
+        chatThread: { select: { id: true, hiddenForUser: true } },
       },
       orderBy: { createdAt: 'desc' },
       take: 100,
@@ -126,9 +127,44 @@ const exchangeRequestRoutes: FastifyPluginAsync = async (app) => {
       receiverBank: r.receiverBank.name,
       amount: r.amount.toString(),
       contact: r.contact,
-      chatThreadId: r.chatThread?.id ?? null,
+      // Only surface a chat the user hasn't hidden — deleting the chat must
+      // also drop the "Открыть чат" action from the request card.
+      chatThreadId: r.chatThread && !r.chatThread.hiddenForUser ? r.chatThread.id : null,
       createdAt: r.createdAt,
     }));
+  });
+
+  // User "delete for me" of a request: it disappears from the user's cabinet
+  // and is marked CANCELLED so the admin still sees it (with that status).
+  // Its chat is hidden for the user too, keeping both lists consistent.
+  app.delete('/api/exchange-requests/:id', { preHandler: requireAuth }, async (request, reply) => {
+    const params = z
+      .object({ id: z.string().min(1).max(64) })
+      .safeParse(request.params);
+    if (!params.success) {
+      return reply.status(400).send({ error: 'Неверный идентификатор заявки' });
+    }
+
+    const existing = await app.prisma.exchangeRequest.findUnique({
+      where: { id: params.data.id },
+      select: { userId: true },
+    });
+    if (!existing || existing.userId !== request.user.userId) {
+      return reply.status(403).send({ error: 'Forbidden' });
+    }
+
+    await app.prisma.$transaction([
+      app.prisma.exchangeRequest.update({
+        where: { id: params.data.id },
+        data: { hiddenForUser: true, status: 'CANCELLED' },
+      }),
+      app.prisma.chatThread.updateMany({
+        where: { exchangeRequestId: params.data.id },
+        data: { hiddenForUser: true },
+      }),
+    ]);
+
+    return { ok: true };
   });
 };
 

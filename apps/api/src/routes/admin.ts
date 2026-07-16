@@ -402,6 +402,16 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
     if (!params.success) {
       return reply.status(400).send({ error: 'Неверный идентификатор чата' });
     }
+
+    // Capture the owner before deleting so we can notify their live session.
+    const thread = await app.prisma.chatThread.findUnique({
+      where: { id: params.data.threadId },
+      select: { userId: true },
+    });
+    if (!thread) {
+      return reply.status(404).send({ error: 'Чат не найден' });
+    }
+
     await app.prisma.chatThread.delete({ where: { id: params.data.threadId } });
     audit(app, {
       actorId: request.user.userId,
@@ -409,6 +419,11 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
       entityType: 'ChatThread',
       entityId: params.data.threadId,
     });
+
+    // Tell the user's cabinet (and any open chat view) so it disappears live.
+    const payload = { threadId: params.data.threadId };
+    app.io.to(`user:${thread.userId}`).emit('thread_deleted', payload);
+    app.io.to(`thread:${params.data.threadId}`).emit('thread_deleted', payload);
     return { ok: true };
   });
 

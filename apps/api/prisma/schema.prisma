@@ -155,6 +155,9 @@ model ExchangeRequest {
   contact           String
   notes             String?
   status            ExchangeRequestStatus @default(NEW)
+  // User "delete for me": hides the request from the user's cabinet. The admin
+  // keeps seeing it (the delete also flips status to CANCELLED).
+  hiddenForUser     Boolean               @default(false)
   createdAt         DateTime              @default(now())
   updatedAt         DateTime              @updatedAt
   user              User?                 @relation(fields: [userId], references: [id], onDelete: SetNull)

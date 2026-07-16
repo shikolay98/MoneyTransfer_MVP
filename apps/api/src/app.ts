@@ -42,6 +42,9 @@ export const buildApp = async () => {
   await app.register(cors, {
     origin: corsOrigin,
     credentials: true,
+    // Be explicit so cross-origin dev (web:5173 → api:4000) can send the
+    // mutating verbs the app relies on. Production is same-origin (no preflight).
+    methods: ['GET', 'HEAD', 'POST', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   await app.register(rateLimit, {

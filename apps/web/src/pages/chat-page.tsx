@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useNavigate, useParams } from 'react-router-dom';
 
 import { AttachmentView } from '../components/chat/attachment-view';
 import { ChatComposer } from '../components/chat/chat-composer';
@@ -33,6 +33,7 @@ export const ChatPage = () => {
   const { user } = useAuth();
   const { addToast } = useToast();
   const confirm = useConfirm();
+  const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const bottomRef = useRef<HTMLDivElement>(null);
@@ -74,11 +75,21 @@ export const ChatPage = () => {
         setMessages((prev) => prev.filter((m) => m.id !== payload.messageId));
       }
     };
+    // The manager deleted this whole chat — inform the user and return them
+    // to the cabinet, where the chat has already disappeared.
+    const onThreadDeleted = (payload: { threadId: string }) => {
+      if (payload.threadId === threadId) {
+        addToast('Чат удалён менеджером', 'info');
+        void navigate('/dashboard');
+      }
+    };
     socket.on('message_deleted', onDeleted);
+    socket.on('thread_deleted', onThreadDeleted);
     return () => {
       socket.off('message_deleted', onDeleted);
+      socket.off('thread_deleted', onThreadDeleted);
     };
-  }, [threadId]);
+  }, [threadId, addToast, navigate]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
