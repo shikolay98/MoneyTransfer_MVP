@@ -29,8 +29,10 @@ export const DashboardLayout = () => {
   if (!user) return null;
 
   if (isChat) {
+    // Lock the page to the viewport so only the messages list scrolls — the
+    // chat card stays fixed and centered, never dragging the page around.
     return (
-      <div className="min-h-[100dvh] bg-[#eef2f9]" id="main-content">
+      <div className="h-[100dvh] overflow-hidden bg-[#eef2f9]" id="main-content">
         <Outlet />
       </div>
     );

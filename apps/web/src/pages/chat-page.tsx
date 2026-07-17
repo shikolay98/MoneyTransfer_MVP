@@ -36,7 +36,7 @@ export const ChatPage = () => {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
 
   usePageTitle('Чат с менеджером');
 
@@ -91,8 +91,11 @@ export const ChatPage = () => {
     };
   }, [threadId, addToast, navigate]);
 
+  // Keep the latest message in view by scrolling ONLY the messages container —
+  // never scrollIntoView, which would drag the whole page/window along.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = messagesRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
   const handleSend = async (body: string, attachments: Attachment[]) => {
@@ -145,7 +148,7 @@ export const ChatPage = () => {
       </div>
 
       {/* Messages */}
-      <div className="flex-1 space-y-2 overflow-y-auto bg-[#eef2f9] px-3 py-4 sm:px-5">
+      <div ref={messagesRef} className="flex-1 space-y-2 overflow-y-auto bg-[#eef2f9] px-3 py-4 sm:px-5">
         {isLoading ? (
           <div className="py-10 text-center text-sm text-muted">Загрузка...</div>
         ) : messages.length === 0 ? (
@@ -243,7 +246,6 @@ export const ChatPage = () => {
             );
           })
         )}
-        <div ref={bottomRef} />
       </div>
 
       <ChatComposer

@@ -561,7 +561,7 @@ const ChatsPanel = ({
   const [selectedId, setSelectedId] = useState<string | null>(initialThreadId);
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
 
   const reloadThreads = () =>
     adminFetchChats()
@@ -611,8 +611,11 @@ const ChatsPanel = ({
 
   useThreadSocket(selectedId, (msg) => setMessages((prev) => appendUnique(prev, msg)));
 
+  // Auto-scroll the messages box only — not the whole admin page, which would
+  // otherwise jump/anchor down and hide the tabs when opening or switching chats.
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: 'smooth' });
+    const el = messagesRef.current;
+    if (el) el.scrollTop = el.scrollHeight;
   }, [messages]);
 
   const send = async (body: string, attachments: Attachment[]) => {
@@ -705,7 +708,7 @@ const ChatsPanel = ({
             </button>
           </div>
 
-          <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
+          <div ref={messagesRef} className="flex-1 overflow-y-auto px-4 py-4 space-y-3">
             {messages.map((m) => {
               const isAdmin = m.senderRole === 'ADMIN';
               const isSystem = m.senderRole === 'SYSTEM';
@@ -765,7 +768,6 @@ const ChatsPanel = ({
                 </div>
               );
             })}
-            <div ref={bottomRef} />
           </div>
 
           <ChatComposer onError={(msg) => addToast(msg, 'error')} onSend={send} />
