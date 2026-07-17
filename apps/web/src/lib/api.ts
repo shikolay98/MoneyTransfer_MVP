@@ -81,6 +81,7 @@ export type ExchangeRequestItem = {
   receiverBank: string;
   amount: string;
   contact: string;
+  title: string;
   chatThreadId: string | null;
   createdAt: string;
 };

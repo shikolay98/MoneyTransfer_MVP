@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import { SupportIcon } from '../components/ui/icons';
 import {
   createChatThread,
   deleteAccount,
   deleteExchangeRequest,
-  deleteMyChatThread,
   fetchMyChats,
   fetchMyRequests,
   type ChatThread,
@@ -31,10 +31,12 @@ const STATUS_COLORS: Record<string, string> = {
   CANCELLED: 'bg-red-50 text-red-700',
 };
 
-const formatAmount = (value: string) => {
-  const num = Number(value);
-  return Number.isFinite(num) ? num.toLocaleString('ru') : value;
-};
+const UnreadBadge = ({ count }: { count: number }) =>
+  count > 0 ? (
+    <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-bold text-white">
+      {count}
+    </span>
+  ) : null;
 
 export const DashboardPage = () => {
   const { user, logout } = useAuth();
@@ -62,8 +64,7 @@ export const DashboardPage = () => {
   useEffect(() => {
     const socket = connectSocket();
     const refetch = () => void fetchMyChats().then(setChats).catch(() => undefined);
-    // The manager deleted a chat for everyone — drop it from the list and from
-    // the matching request card live.
+    // The manager deleted a chat for everyone — drop it and unlink the request.
     const onThreadDeleted = (payload: { threadId: string }) => {
       setChats((prev) => prev.filter((c) => c.id !== payload.threadId));
       setRequests((prev) =>
@@ -80,7 +81,12 @@ export const DashboardPage = () => {
     };
   }, []);
 
-  const handleStartChat = async () => {
+  // The single general chat (not tied to any request) and a quick unread lookup.
+  const generalChat = chats.find((c) => !c.exchangeRequest);
+  const unreadFor = (threadId: string | null) =>
+    threadId ? (chats.find((c) => c.id === threadId)?.unreadCount ?? 0) : 0;
+
+  const handleOpenGeneralChat = async () => {
     setIsStartingChat(true);
     try {
       const thread = await createChatThread();
@@ -89,27 +95,6 @@ export const DashboardPage = () => {
       addToast('Не удалось открыть чат', 'error');
     } finally {
       setIsStartingChat(false);
-    }
-  };
-
-  const handleDeleteChat = async (threadId: string) => {
-    const ok = await confirm({
-      title: 'Удалить чат?',
-      message: 'Чат исчезнет из вашего списка. Менеджер сохранит переписку у себя.',
-      confirmText: 'Удалить',
-      danger: true,
-    });
-    if (!ok) return;
-    try {
-      await deleteMyChatThread(threadId);
-      setChats((prev) => prev.filter((c) => c.id !== threadId));
-      // Drop the "Открыть чат" action from the matching request card too.
-      setRequests((prev) =>
-        prev.map((r) => (r.chatThreadId === threadId ? { ...r, chatThreadId: null } : r)),
-      );
-      addToast('Чат удалён', 'success');
-    } catch {
-      addToast('Не удалось удалить чат', 'error');
     }
   };
 
@@ -125,7 +110,7 @@ export const DashboardPage = () => {
       await deleteExchangeRequest(requestId);
       const req = requests.find((r) => r.id === requestId);
       setRequests((prev) => prev.filter((r) => r.id !== requestId));
-      // Its chat (if any) is hidden server-side — mirror that in the list.
+      // Its chat is hidden server-side — mirror that in the unread lookup.
       if (req?.chatThreadId) {
         setChats((prev) => prev.filter((c) => c.id !== req.chatThreadId));
       }
@@ -164,7 +149,7 @@ export const DashboardPage = () => {
         </div>
         <div className="grid gap-3 content-start">
           <div className="skeleton h-40 w-full" />
-          <div className="skeleton h-32 w-full" />
+          <div className="skeleton h-20 w-full" />
         </div>
       </div>
     );
@@ -172,7 +157,7 @@ export const DashboardPage = () => {
 
   return (
     <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-      {/* Left: Requests */}
+      {/* Left: Requests — each request opens its own chat */}
       <div>
         <div className="mb-4 flex min-h-[2.5rem] items-center justify-between">
           <h2 className="text-xl font-semibold text-ink">Мои заявки ({requests.length})</h2>
@@ -199,19 +184,19 @@ export const DashboardPage = () => {
         ) : (
           <div className="grid gap-3">
             {requests.map((r) => {
+              const unread = unreadFor(r.chatThreadId);
               const cardBody = (
                 <div className="flex items-center justify-between gap-4 pr-6">
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-ink">
-                        {r.sendCurrency} → {r.receiveCurrency}
-                      </span>
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-ink">{r.title}</span>
                       <span className={`rounded-full px-2 py-0.5 text-xs font-semibold ${STATUS_COLORS[r.status] ?? ''}`}>
                         {STATUS_LABELS[r.status] ?? r.status}
                       </span>
+                      <UnreadBadge count={unread} />
                     </div>
                     <div className="mt-1 text-sm text-muted">
-                      {formatAmount(r.amount)} {r.sendCurrency} · {r.senderBank} → {r.receiverBank}
+                      {r.senderBank} → {r.receiverBank}
                     </div>
                     <div className="mt-1 text-xs text-muted">
                       {new Date(r.createdAt).toLocaleString('ru')}
@@ -253,99 +238,66 @@ export const DashboardPage = () => {
         )}
       </div>
 
-      {/* Right: Profile + Chats */}
+      {/* Right: Profile + a single general chat */}
       <div className="content-start">
         <div className="mb-4 flex min-h-[2.5rem] items-center">
           <h2 className="text-xl font-semibold text-ink">Аккаунт</h2>
         </div>
         <div className="grid gap-4">
-        {/* Profile */}
-        <div className="rounded-[20px] border border-line bg-white p-6">
-          <h3 className="text-base font-semibold text-ink mb-3">Профиль</h3>
-          <div className="grid gap-1.5 text-sm">
-            <div>
-              <span className="text-muted">Имя: </span>
-              <span className="text-ink font-medium">{user?.firstName ?? '—'}</span>
-            </div>
-            {user?.telegramUsername && (
+          {/* Profile */}
+          <div className="rounded-[20px] border border-line bg-white p-6">
+            <h3 className="text-base font-semibold text-ink mb-3">Профиль</h3>
+            <div className="grid gap-1.5 text-sm">
               <div>
-                <span className="text-muted">Telegram: </span>
-                <span className="text-ink font-medium">@{user.telegramUsername}</span>
+                <span className="text-muted">Имя: </span>
+                <span className="text-ink font-medium">{user?.firstName ?? '—'}</span>
               </div>
-            )}
-            {user?.email && (
-              <div>
-                <span className="text-muted">Email: </span>
-                <span className="text-ink font-medium">{user.email}</span>
-              </div>
-            )}
-          </div>
-          {user?.role !== 'ADMIN' && (
-            <button
-              className="mt-4 text-xs font-semibold text-danger transition hover:underline"
-              onClick={() => void handleDeleteAccount()}
-              type="button"
-            >
-              Удалить аккаунт
-            </button>
-          )}
-        </div>
-
-        {/* Chats */}
-        <div className="rounded-[20px] border border-line bg-white p-6">
-          <div className="flex items-center justify-between mb-3">
-            <h3 className="text-base font-semibold text-ink">Чаты с менеджером</h3>
-          </div>
-
-          {chats.length === 0 ? (
-            <div className="text-sm text-muted">
-              Здесь появится переписка с менеджером по вашим заявкам.
-            </div>
-          ) : (
-            <div className="grid gap-2">
-              {chats.map((ch) => (
-                <div
-                  key={ch.id}
-                  className="group relative rounded-[16px] border border-line transition hover:border-brand"
-                >
-                  <Link className="block p-3 pr-9" to={`/dashboard/chat/${ch.id}`}>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-semibold text-ink">
-                        {ch.subject ?? 'Общий вопрос'}
-                      </span>
-                      {ch.unreadCount > 0 && (
-                        <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-brand px-1.5 text-[11px] font-bold text-white">
-                          {ch.unreadCount}
-                        </span>
-                      )}
-                    </div>
-                    {ch.lastMessage && (
-                      <div className="mt-1 text-xs text-muted line-clamp-1">{ch.lastMessage}</div>
-                    )}
-                  </Link>
-                  <button
-                    aria-label="Удалить чат"
-                    className="absolute right-2 top-2 flex h-6 w-6 items-center justify-center rounded-full text-muted opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
-                    onClick={() => void handleDeleteChat(ch.id)}
-                    title="Удалить чат у себя"
-                    type="button"
-                  >
-                    ✕
-                  </button>
+              {user?.telegramUsername && (
+                <div>
+                  <span className="text-muted">Telegram: </span>
+                  <span className="text-ink font-medium">@{user.telegramUsername}</span>
                 </div>
-              ))}
+              )}
+              {user?.email && (
+                <div>
+                  <span className="text-muted">Email: </span>
+                  <span className="text-ink font-medium">{user.email}</span>
+                </div>
+              )}
             </div>
-          )}
+            {user?.role !== 'ADMIN' && (
+              <button
+                className="mt-4 text-xs font-semibold text-danger transition hover:underline"
+                onClick={() => void handleDeleteAccount()}
+                type="button"
+              >
+                Удалить аккаунт
+              </button>
+            )}
+          </div>
 
+          {/* Single general chat — request-specific chats live on their cards */}
           <button
-            className="mt-3 w-full rounded-full border border-brand px-4 py-2 text-xs font-semibold text-brand transition hover:bg-brand hover:text-white disabled:opacity-60"
+            className="group flex w-full items-center gap-3 rounded-[20px] border border-line bg-white p-5 text-left transition hover:-translate-y-0.5 hover:border-brand/40 hover:shadow-panel disabled:opacity-60"
             disabled={isStartingChat}
-            onClick={() => void handleStartChat()}
+            onClick={() => void handleOpenGeneralChat()}
             type="button"
           >
-            {isStartingChat ? 'Открываем чат...' : 'Написать менеджеру'}
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-brand to-sky text-white">
+              <SupportIcon className="h-5 w-5" />
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-ink">
+                  {isStartingChat ? 'Открываем чат...' : 'Чат с менеджером'}
+                </span>
+                <UnreadBadge count={generalChat?.unreadCount ?? 0} />
+              </span>
+              <span className="mt-0.5 block text-xs text-muted">
+                Общие вопросы, не связанные с конкретной заявкой
+              </span>
+            </span>
           </button>
-        </div>
         </div>
       </div>
     </div>

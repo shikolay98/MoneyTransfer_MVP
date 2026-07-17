@@ -2,6 +2,7 @@ import type { FastifyPluginAsync } from 'fastify';
 import { z } from 'zod';
 
 import { requireAuth } from '../lib/auth-guard.js';
+import { buildRequestChatTitle, loadRateMap } from '../lib/chat-service.js';
 
 const MAX_AMOUNT = 100_000_000;
 
@@ -118,6 +119,8 @@ const exchangeRequestRoutes: FastifyPluginAsync = async (app) => {
       take: 100,
     });
 
+    const rateMap = await loadRateMap(app);
+
     return requests.map((r) => ({
       id: r.id,
       status: r.status,
@@ -127,6 +130,8 @@ const exchangeRequestRoutes: FastifyPluginAsync = async (app) => {
       receiverBank: r.receiverBank.name,
       amount: r.amount.toString(),
       contact: r.contact,
+      // Same rich, self-distinguishing title used for the chat list.
+      title: buildRequestChatTitle(r, rateMap),
       // Only surface a chat the user hasn't hidden — deleting the chat must
       // also drop the "Открыть чат" action from the request card.
       chatThreadId: r.chatThread && !r.chatThread.hiddenForUser ? r.chatThread.id : null,
