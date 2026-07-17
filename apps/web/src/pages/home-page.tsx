@@ -249,7 +249,7 @@ export const HomePage = () => {
                 {renderFeatureIcon(stat.icon)}
               </div>
               <div>
-                <div className="font-display text-2xl font-bold leading-none text-ink">
+                <div className="whitespace-nowrap font-display text-2xl font-bold leading-none text-ink">
                   {stat.value}
                 </div>
                 <div className="mt-1 text-xs leading-4 text-muted">{stat.label}</div>

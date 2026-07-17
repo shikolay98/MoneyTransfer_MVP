@@ -224,7 +224,7 @@ export const DashboardPage = () => {
                   )}
                   <button
                     aria-label="Удалить заявку"
-                    className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full text-muted opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
+                    className="absolute right-3 top-3 flex h-7 w-7 items-center justify-center rounded-full text-muted opacity-100 transition hover:bg-danger/10 hover:text-danger sm:opacity-0 sm:group-hover:opacity-100"
                     onClick={() => void handleDeleteRequest(r.id)}
                     title="Удалить заявку"
                     type="button"

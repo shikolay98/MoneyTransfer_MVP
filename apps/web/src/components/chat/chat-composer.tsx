@@ -67,7 +67,7 @@ export const ChatComposer = ({ onSend, onError, placeholder }: ChatComposerProps
   };
 
   return (
-    <div className="border-t border-line/70 p-3 bg-[#f5f8fd]">
+    <div className="border-t border-line/70 bg-[#f5f8fd] px-3 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
       {files.length > 0 && (
         <div className="mb-2 flex flex-wrap gap-2">
           {files.map((file, index) => (

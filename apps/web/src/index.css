@@ -57,6 +57,17 @@ textarea {
   font: inherit;
 }
 
+/* iOS zooms the page when focusing a field with font-size < 16px. Force 16px
+   on small screens so focusing chat/form inputs never triggers a zoom. Desktop
+   keeps the design's smaller sizes. */
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}
+
 /* ── Layout ────────────────────────────────────────────────────── */
 .page-shell {
   @apply mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8;

@@ -36,6 +36,9 @@ export const ChatPage = () => {
   const navigate = useNavigate();
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  // On touch there is no hover, so tapping a message reveals its delete button;
+  // tapping empty space clears it. On desktop hover still reveals it.
+  const [activeMsg, setActiveMsg] = useState<string | null>(null);
   const messagesRef = useRef<HTMLDivElement>(null);
 
   usePageTitle('Чат с менеджером');
@@ -92,10 +95,15 @@ export const ChatPage = () => {
   }, [threadId, addToast, navigate]);
 
   // Keep the latest message in view by scrolling ONLY the messages container —
-  // never scrollIntoView, which would drag the whole page/window along.
+  // never scrollIntoView, which would drag the whole page/window along. A rAF
+  // lets layout settle first (matters on mobile when the keyboard is open).
   useEffect(() => {
     const el = messagesRef.current;
-    if (el) el.scrollTop = el.scrollHeight;
+    if (!el) return;
+    const id = requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight;
+    });
+    return () => cancelAnimationFrame(id);
   }, [messages]);
 
   const handleSend = async (body: string, attachments: Attachment[]) => {
@@ -126,8 +134,8 @@ export const ChatPage = () => {
 
   return (
     <div className="mx-auto flex h-[100dvh] max-w-3xl flex-col bg-white sm:my-6 sm:h-[calc(100dvh-3rem)] sm:rounded-3xl sm:border sm:border-line sm:shadow-panel sm:overflow-hidden">
-      {/* Top bar */}
-      <div className="flex items-center gap-3 border-b border-line bg-white px-4 py-3">
+      {/* Top bar — extra top padding clears the notch / dynamic island on mobile */}
+      <div className="flex items-center gap-3 border-b border-line bg-white px-4 pb-3 pt-[calc(0.75rem+env(safe-area-inset-top))] sm:pt-3">
         <Link
           aria-label="Назад в кабинет"
           className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-ink/5 hover:text-ink"
@@ -148,7 +156,11 @@ export const ChatPage = () => {
       </div>
 
       {/* Messages */}
-      <div ref={messagesRef} className="flex-1 space-y-2 overflow-y-auto bg-[#eef2f9] px-3 py-4 sm:px-5">
+      <div
+        ref={messagesRef}
+        className="flex-1 space-y-2 overflow-y-auto bg-[#eef2f9] px-3 py-4 sm:px-5"
+        onClick={() => setActiveMsg(null)}
+      >
         {isLoading ? (
           <div className="py-10 text-center text-sm text-muted">Загрузка...</div>
         ) : messages.length === 0 ? (
@@ -162,6 +174,7 @@ export const ChatPage = () => {
             const isMe = m.senderId === user?.id;
             const isSystem = m.senderRole === 'SYSTEM';
             const attachments = m.attachments ?? [];
+            const reveal = activeMsg === m.id ? 'opacity-100' : 'opacity-0';
             const created = new Date(m.createdAt);
 
             const dayLabel = formatDayLabel(created);
@@ -192,12 +205,21 @@ export const ChatPage = () => {
             return (
               <div key={m.id}>
                 {dayDivider}
-                <div className={`group flex items-center gap-1.5 ${isMe ? 'justify-end' : 'justify-start'}`}>
+                <div
+                  className={`group flex items-center gap-1.5 ${isMe ? 'justify-end' : 'justify-start'}`}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActiveMsg((prev) => (prev === m.id ? null : m.id));
+                  }}
+                >
                   {isMe && (
                     <button
                       aria-label="Удалить сообщение у себя"
-                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
-                      onClick={() => void handleDeleteMessage(m.id)}
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100 ${reveal}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleDeleteMessage(m.id);
+                      }}
                       title="Удалить у себя"
                       type="button"
                     >
@@ -233,8 +255,11 @@ export const ChatPage = () => {
                   {!isMe && (
                     <button
                       aria-label="Удалить сообщение у себя"
-                      className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted opacity-0 transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100"
-                      onClick={() => void handleDeleteMessage(m.id)}
+                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-muted transition hover:bg-danger/10 hover:text-danger group-hover:opacity-100 ${reveal}`}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        void handleDeleteMessage(m.id);
+                      }}
                       title="Удалить у себя"
                       type="button"
                     >
@@ -251,7 +276,7 @@ export const ChatPage = () => {
       <ChatComposer
         onError={(msg) => addToast(msg, 'error')}
         onSend={handleSend}
-        placeholder="Введите сообщение или прикрепите чек..."
+        placeholder="Сообщение…"
       />
     </div>
   );

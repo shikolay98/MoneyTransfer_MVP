@@ -39,7 +39,7 @@ export const DashboardLayout = () => {
   }
 
   return (
-    <div className="page-shell py-4 sm:py-8">
+    <div className="page-shell pb-4 pt-[calc(1rem+env(safe-area-inset-top))] sm:pb-8 sm:pt-[calc(2rem+env(safe-area-inset-top))]">
       <div className="section-card overflow-hidden">
         <div className="border-b border-line/70 bg-white/80 px-4 py-4 sm:px-6 sm:py-5">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -51,15 +51,18 @@ export const DashboardLayout = () => {
                 Личный кабинет
               </h1>
             </div>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 sm:gap-3">
               <span className="hidden text-sm text-muted sm:block">
                 {user.firstName ?? user.telegramUsername ?? 'Пользователь'}
               </span>
-              <Link className="text-sm font-semibold text-brand" to="/">
+              <Link
+                className="rounded-full border border-brand px-4 py-2 text-sm font-semibold text-brand transition hover:bg-brand hover:text-white"
+                to="/"
+              >
                 На главную
               </Link>
               <button
-                className="text-sm font-semibold text-muted hover:text-ink"
+                className="rounded-full border border-line px-4 py-2 text-sm font-semibold text-ink transition hover:bg-ink/5"
                 onClick={() => void logout()}
                 type="button"
               >

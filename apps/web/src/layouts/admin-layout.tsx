@@ -26,7 +26,7 @@ export const AdminLayout = () => {
   }
 
   return (
-    <div className="page-shell py-8">
+    <div className="page-shell pb-8 pt-[calc(2rem+env(safe-area-inset-top))]">
       <div className="section-card overflow-hidden border-ink/5">
         <div className="border-b border-line/70 bg-[#0b1730] px-6 py-5 text-white">
           <div className="flex flex-wrap items-center justify-between gap-4">
@@ -36,13 +36,18 @@ export const AdminLayout = () => {
               </p>
               <h1 className="mt-2 font-display text-3xl font-semibold">Панель управления</h1>
             </div>
-            <div className="flex items-center gap-4">
-              <span className="text-sm text-white/70">{user.firstName ?? user.email}</span>
-              <Link className="text-sm font-semibold text-white/85 hover:text-white" to="/">
+            <div className="flex items-center gap-2 sm:gap-3">
+              <span className="hidden text-sm text-white/70 sm:block">
+                {user.firstName ?? user.email}
+              </span>
+              <Link
+                className="rounded-full border border-white/30 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+                to="/"
+              >
                 На публичный сайт
               </Link>
               <button
-                className="text-sm font-semibold text-white/60 hover:text-white"
+                className="rounded-full border border-white/30 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
                 onClick={() => void logout()}
                 type="button"
               >

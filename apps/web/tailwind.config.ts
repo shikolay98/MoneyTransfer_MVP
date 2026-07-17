@@ -2,6 +2,9 @@ import type { Config } from 'tailwindcss';
 
 export default {
   content: ['./index.html', './src/**/*.{ts,tsx}'],
+  // Apply `hover:` styles only on devices that actually support hover (desktop),
+  // so touch devices don't get stuck on a "hover" state that needs a second tap.
+  future: { hoverOnlyWhenSupported: true },
   theme: {
     extend: {
       colors: {
