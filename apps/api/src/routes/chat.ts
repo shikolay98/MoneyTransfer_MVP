@@ -5,7 +5,9 @@ import { ALLOWED_MIME, MAX_ATTACHMENTS_PER_MESSAGE, MAX_UPLOAD_BYTES } from '../
 import { requireAuth } from '../lib/auth-guard.js';
 import {
   attachUnreadForUser,
+  buildRequestChatTitle,
   createChatMessage,
+  loadRateMap,
   loadThreadMessages,
   MAX_MESSAGE_LENGTH,
   streamThreadAttachment,
@@ -45,20 +47,35 @@ const chatRoutes: FastifyPluginAsync = async (app) => {
           orderBy: { createdAt: 'desc' },
           take: 1,
         },
-        exchangeRequest: { select: { id: true, status: true } },
+        exchangeRequest: {
+          select: {
+            id: true,
+            status: true,
+            amount: true,
+            sendCurrencyId: true,
+            receiveCurrencyId: true,
+            sendCurrency: { select: { code: true } },
+            receiveCurrency: { select: { code: true } },
+          },
+        },
       },
       orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
       take: 100,
     });
 
-    const unread = await attachUnreadForUser(app, threads);
+    const [unread, rateMap] = await Promise.all([
+      attachUnreadForUser(app, threads),
+      loadRateMap(app),
+    ]);
 
     return threads.map((t) => ({
       id: t.id,
-      subject: t.subject,
+      // Request-linked chats get a self-distinguishing title (currencies +
+      // amounts); the general chat keeps its stored subject.
+      subject: t.exchangeRequest ? buildRequestChatTitle(t.exchangeRequest, rateMap) : t.subject,
       lastMessage: t.messages[0]?.body ?? null,
       lastMessageAt: t.lastMessageAt,
-      exchangeRequest: t.exchangeRequest,
+      exchangeRequest: t.exchangeRequest ? { id: t.exchangeRequest.id, status: t.exchangeRequest.status } : null,
       unreadCount: unread.get(t.id) ?? 0,
     }));
   });

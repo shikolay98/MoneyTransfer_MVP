@@ -14,6 +14,55 @@ import {
 export const MAX_MESSAGE_LENGTH = 4000;
 export const MESSAGES_PAGE_SIZE = 500;
 
+const moneyFormatter = (maxFrac: number) =>
+  new Intl.NumberFormat('ru-RU', { maximumFractionDigits: maxFrac, useGrouping: true });
+
+// "10 000" / "4 563" / "10 000,5" — spaces group thousands, comma for decimals.
+const formatMoney = (value: number, maxFrac = 2): string =>
+  Number.isFinite(value) ? moneyFormatter(maxFrac).format(value) : '';
+
+type RateInfo = { rate: number; feePercent: number };
+
+// Loads active rates keyed by "fromId:toId" so a chat list can estimate the
+// receive amount without a per-thread query.
+export const loadRateMap = async (app: FastifyInstance): Promise<Map<string, RateInfo>> => {
+  const rates = await app.prisma.exchangeRate.findMany({
+    where: { isActive: true },
+    select: { fromCurrencyId: true, toCurrencyId: true, rate: true, feePercent: true },
+  });
+  return new Map(
+    rates.map((r) => [
+      `${r.fromCurrencyId}:${r.toCurrencyId}`,
+      { rate: Number(r.rate), feePercent: r.feePercent ? Number(r.feePercent) : 0 },
+    ]),
+  );
+};
+
+type RequestForTitle = {
+  amount: Prisma.Decimal | number | string;
+  sendCurrencyId: string;
+  receiveCurrencyId: string;
+  sendCurrency: { code: string };
+  receiveCurrency: { code: string };
+};
+
+// Builds a human, self-distinguishing chat title from the linked request, e.g.
+// "RUB 10 000 → UAH 4 563". Falls back to just the send side when no rate is
+// available. The receive amount is an estimate (the manager confirms the final).
+export const buildRequestChatTitle = (
+  req: RequestForTitle,
+  rateMap: Map<string, RateInfo>,
+): string => {
+  const sendAmount = Number(req.amount);
+  const sendPart = `${req.sendCurrency.code} ${formatMoney(sendAmount)}`;
+  const rate = rateMap.get(`${req.sendCurrencyId}:${req.receiveCurrencyId}`);
+  if (!rate || !Number.isFinite(sendAmount)) {
+    return `${sendPart} → ${req.receiveCurrency.code}`;
+  }
+  const receive = sendAmount * rate.rate * (1 - rate.feePercent / 100);
+  return `${sendPart} → ${req.receiveCurrency.code} ${formatMoney(receive, 0)}`;
+};
+
 export const loadThreadMessages = async (
   app: FastifyInstance,
   threadId: string,

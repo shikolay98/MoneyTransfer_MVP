@@ -5,7 +5,9 @@ import { audit } from '../lib/audit.js';
 import { requireAdmin } from '../lib/auth-guard.js';
 import {
   attachUnreadForAdmin,
+  buildRequestChatTitle,
   createChatMessage,
+  loadRateMap,
   loadThreadMessages,
   streamThreadAttachment,
 } from '../lib/chat-service.js';
@@ -350,21 +352,34 @@ const adminRoutes: FastifyPluginAsync = async (app) => {
           orderBy: { createdAt: 'desc' },
           take: 1,
         },
-        exchangeRequest: { select: { id: true, status: true } },
+        exchangeRequest: {
+          select: {
+            id: true,
+            status: true,
+            amount: true,
+            sendCurrencyId: true,
+            receiveCurrencyId: true,
+            sendCurrency: { select: { code: true } },
+            receiveCurrency: { select: { code: true } },
+          },
+        },
       },
       orderBy: { lastMessageAt: { sort: 'desc', nulls: 'last' } },
       take: 500,
     });
 
-    const unread = await attachUnreadForAdmin(app, threads);
+    const [unread, rateMap] = await Promise.all([
+      attachUnreadForAdmin(app, threads),
+      loadRateMap(app),
+    ]);
 
     return threads.map((t) => ({
       id: t.id,
-      subject: t.subject,
+      subject: t.exchangeRequest ? buildRequestChatTitle(t.exchangeRequest, rateMap) : t.subject,
       user: t.user,
       lastMessage: t.messages[0]?.body ?? null,
       lastMessageAt: t.lastMessageAt,
-      exchangeRequest: t.exchangeRequest,
+      exchangeRequest: t.exchangeRequest ? { id: t.exchangeRequest.id, status: t.exchangeRequest.status } : null,
       unreadCount: unread.get(t.id) ?? 0,
     }));
   });
