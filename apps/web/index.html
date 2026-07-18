@@ -2,7 +2,9 @@
 <html lang="ru">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, interactive-widget=resizes-content" />
+    <!-- maximum-scale=1 blocks iOS's auto-zoom on input focus; Safari still
+         allows manual pinch-zoom gestures regardless (since iOS 10). -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1, viewport-fit=cover, interactive-widget=resizes-content" />
     <meta name="description" content="Money Transfer — обмен рублей и гривен онлайн. Быстро, безопасно, с подтверждением менеджера." />
     <meta name="theme-color" content="#0B1730" />
 

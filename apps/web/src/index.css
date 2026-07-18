@@ -58,13 +58,14 @@ textarea {
 }
 
 /* iOS zooms the page when focusing a field with font-size < 16px. Force 16px
-   on small screens so focusing chat/form inputs never triggers a zoom. Desktop
-   keeps the design's smaller sizes. */
+   on small screens so focusing chat/form inputs never triggers a zoom. The
+   !important is required to beat Tailwind utility classes like text-sm that
+   are applied directly on the fields. Desktop keeps the design's smaller sizes. */
 @media (max-width: 640px) {
   input,
   select,
   textarea {
-    font-size: 16px;
+    font-size: 16px !important;
   }
 }
 
